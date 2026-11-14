@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS knowledge_point (
   chapter_name TEXT NOT NULL DEFAULT '',
   paragraph_index INTEGER NOT NULL DEFAULT 0,
   paragraph_text TEXT NOT NULL DEFAULT '',
+  prerequisite_point_id TEXT,
   knowledge_point_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS plan (
   learning_goal_id TEXT NOT NULL,
   plan_version INTEGER NOT NULL DEFAULT 1,
   plan_status TEXT NOT NULL DEFAULT 'active',
+  route_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (learning_goal_id) REFERENCES learning_goal (learning_goal_id)
@@ -133,7 +135,25 @@ export function createDatabase(filePath: string): DatabaseSync {
     db.exec("PRAGMA journal_mode = WAL;");
   }
   db.exec(SCHEMA_SQL);
+  ensureSchemaColumns(db);
   return db;
+}
+
+function ensureSchemaColumns(db: DatabaseSync): void {
+  addColumnIfMissing(db, "knowledge_point", "prerequisite_point_id", "TEXT");
+  addColumnIfMissing(db, "plan", "route_json", "TEXT NOT NULL DEFAULT '[]'");
+}
+
+function addColumnIfMissing(
+  db: DatabaseSync,
+  table: string,
+  column: string,
+  definition: string,
+): void {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!rows.some((row) => row.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 let databaseInstance: DatabaseSync | null = null;
