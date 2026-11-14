@@ -98,6 +98,7 @@ describe("进度汇总", () => {
     expect(summary?.needsReview).toBe(1);
     expect(summary?.passed).toBe(0);
     expect(summary?.lastStudied?.knowledgePointId).toBe("kp-2");
+    expect(summary?.streakDays).toBe(0);
   });
 
   it("同一天重复打开，状态保持一致", () => {
