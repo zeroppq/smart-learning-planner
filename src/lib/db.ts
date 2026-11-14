@@ -142,6 +142,7 @@ export function createDatabase(filePath: string): DatabaseSync {
 function ensureSchemaColumns(db: DatabaseSync): void {
   addColumnIfMissing(db, "knowledge_point", "prerequisite_point_id", "TEXT");
   addColumnIfMissing(db, "plan", "route_json", "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing(db, "mastery_record", "review_count", "INTEGER NOT NULL DEFAULT 0");
 }
 
 function addColumnIfMissing(
