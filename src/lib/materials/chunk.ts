@@ -10,13 +10,33 @@ const TEXT_GROUP_SIZE = 5;
 const MAX_POINT_TEXT_LENGTH = 4000;
 const MAX_TITLE_LENGTH = 60;
 
-function headingLevel(paragraph: string): number {
-  const match = /^(#{1,6})\s+/.exec(paragraph);
-  return match ? match[1].length : 0;
+interface HeadingInfo {
+  index: number;
+  level: number;
+  title: string;
 }
 
-function headingTitle(paragraph: string): string {
-  return paragraph.replace(/^#{1,6}\s+/, "").trim();
+function parseHeading(paragraph: string): { level: number; title: string } | null {
+  const match = /^(#{1,6})\s+(.*)$/.exec(paragraph.trim());
+  if (!match) {
+    return null;
+  }
+  return { level: match[1].length, title: match[2].trim() };
+}
+
+function collectHeadings(paragraphs: string[]): HeadingInfo[] {
+  const headings: HeadingInfo[] = [];
+  paragraphs.forEach((paragraph, index) => {
+    const heading = parseHeading(paragraph);
+    if (heading) {
+      headings.push({ index, level: heading.level, title: heading.title });
+    }
+  });
+  return headings;
+}
+
+function isHeadingLine(paragraph: string): boolean {
+  return parseHeading(paragraph) !== null;
 }
 
 function truncate(value: string, max: number): string {
@@ -24,104 +44,69 @@ function truncate(value: string, max: number): string {
   return normalized.length > max ? `${normalized.slice(0, max)}…` : normalized;
 }
 
-export function chunkKnowledgePoints(paragraphs: string[]): KnowledgePointDraft[] {
-  const hasAnyHeading = paragraphs.some((paragraph) => headingLevel(paragraph) > 0);
+function isAppendixTitle(title: string): boolean {
+  return title.includes("附录");
+}
 
-  if (!hasAnyHeading) {
+function findParentHeading(headings: HeadingInfo[], index: number): HeadingInfo | null {
+  const current = headings[index];
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (headings[cursor].level < current.level) {
+      return headings[cursor];
+    }
+  }
+  return null;
+}
+
+/**
+ * 切分规则：只有"叶子标题"才成为知识点。
+ * 一个标题如果下面还有更深的标题，它只作为章节上下文（chapterName），不单独成点。
+ * "附录"可以是叶子标题，但属于答案库，不切成学习内容；原文仍完整保留在资料正文里。
+ */
+export function chunkKnowledgePoints(paragraphs: string[]): KnowledgePointDraft[] {
+  const headings = collectHeadings(paragraphs);
+
+  if (headings.length === 0) {
     return chunkPlainText(paragraphs);
   }
 
-  const chapterHasSubHeading = collectChapterInfo(paragraphs);
   const drafts: KnowledgePointDraft[] = [];
-  let chapterName = "";
-  let current: KnowledgePointDraft | null = null;
 
-  function pushCurrent() {
-    if (current) {
-      current.paragraphText = current.paragraphText.slice(0, MAX_POINT_TEXT_LENGTH);
-      drafts.push(current);
-      current = null;
-    }
-  }
+  headings.forEach((heading, index) => {
+    const nextHeading = headings[index + 1];
+    const isLeaf = !nextHeading || nextHeading.level <= heading.level;
 
-  paragraphs.forEach((paragraph, index) => {
-    const level = headingLevel(paragraph);
-
-    if (level === 1) {
-      pushCurrent();
-      chapterName = headingTitle(paragraph);
-      if (!chapterHasSubHeading.get(chapterName)) {
-        current = createDraft(chapterName, chapterName, index, paragraph);
-      }
+    if (!isLeaf) {
       return;
     }
 
-    if (level >= 2) {
-      pushCurrent();
-      current = createDraft(headingTitle(paragraph), chapterName, index, paragraph);
+    const parent = findParentHeading(headings, index);
+    if (isAppendixTitle(heading.title) || (parent && isAppendixTitle(parent.title))) {
       return;
     }
 
-    if (current) {
-      current.paragraphText = `${current.paragraphText}\n${paragraph}`;
+    const start = heading.index + 1;
+    const end = nextHeading ? nextHeading.index : paragraphs.length;
+    const body = paragraphs
+      .slice(start, end)
+      .filter((paragraph) => !isHeadingLine(paragraph))
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+
+    if (body.length === 0) {
       return;
     }
 
-    if (chapterHasSubHeading.get(chapterName)) {
-      // 章节标题与第一个小节标题之间的导语不计为知识点
-      return;
-    }
-
-    current = createDraft(
-      chapterName || truncate(paragraph, MAX_TITLE_LENGTH),
-      chapterName,
-      index,
-      paragraph,
-    );
+    drafts.push({
+      pointTitle: truncate(heading.title, MAX_TITLE_LENGTH) || `第 ${heading.index + 1} 段`,
+      chapterName: truncate(parent?.title ?? "", MAX_TITLE_LENGTH),
+      paragraphIndex: heading.index + 1,
+      paragraphText: `${heading.title}\n${body.join("\n")}`.slice(0, MAX_POINT_TEXT_LENGTH),
+      knowledgePointOrder: drafts.length + 1,
+    });
   });
 
-  pushCurrent();
-
-  return drafts.map((draft, order) => ({
-    ...draft,
-    knowledgePointOrder: order + 1,
-  }));
-}
-
-function collectChapterInfo(paragraphs: string[]): Map<string, boolean> {
-  const chapterHasSubHeading = new Map<string, boolean>();
-  let currentChapter = "";
-
-  for (const paragraph of paragraphs) {
-    const level = headingLevel(paragraph);
-    if (level === 1) {
-      currentChapter = headingTitle(paragraph);
-      if (!chapterHasSubHeading.has(currentChapter)) {
-        chapterHasSubHeading.set(currentChapter, false);
-      }
-      continue;
-    }
-    if (level >= 2 && currentChapter) {
-      chapterHasSubHeading.set(currentChapter, true);
-    }
-  }
-
-  return chapterHasSubHeading;
-}
-
-function createDraft(
-  title: string,
-  chapterName: string,
-  paragraphIndex: number,
-  paragraphText: string,
-): KnowledgePointDraft {
-  return {
-    pointTitle: truncate(title, MAX_TITLE_LENGTH) || `第 ${paragraphIndex + 1} 段`,
-    chapterName: truncate(chapterName, MAX_TITLE_LENGTH),
-    paragraphIndex: paragraphIndex + 1,
-    paragraphText,
-    knowledgePointOrder: 0,
-  };
+  return drafts;
 }
 
 function chunkPlainText(paragraphs: string[]): KnowledgePointDraft[] {

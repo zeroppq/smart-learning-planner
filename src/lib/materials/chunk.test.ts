@@ -41,6 +41,70 @@ ASCII 是常见字符编码。`;
     expect(drafts[0].paragraphText).toContain("二进制");
   });
 
+  it("三级结构里只有最深层标题成为知识点，章标题只作上下文", () => {
+    const text = `# 大学计算机基础
+
+## 第一章
+
+导语段落，不算知识点。
+
+### 1.1 第一节
+
+第一节的内容足够多。
+
+### 1.2 第二节
+
+第二节的内容足够多。
+
+## 第二章
+
+### 2.1 第一节
+
+内容也足够多。`;
+    const drafts = chunkKnowledgePoints(splitParagraphs(text));
+
+    expect(drafts).toHaveLength(3);
+    expect(drafts[0].pointTitle).toBe("1.1 第一节");
+    expect(drafts[0].chapterName).toBe("第一章");
+    expect(drafts[2].chapterName).toBe("第二章");
+  });
+
+  it("附录是答案库，不切成知识点", () => {
+    const text = `# 书名
+
+## 第一章
+
+### 1.1 第一节
+
+正文内容足够多。
+
+## 附录：练习题参考答案
+
+**1.1 第一节**
+
+参考答案内容。`;
+    const drafts = chunkKnowledgePoints(splitParagraphs(text));
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].pointTitle).toBe("1.1 第一节");
+  });
+
+  it("只有标题没有正文的叶子标题不生成知识点", () => {
+    const text = `# 书名
+
+## 第一章
+
+### 1.1 空标题
+
+### 1.2 有内容
+
+这里才有内容。`;
+    const drafts = chunkKnowledgePoints(splitParagraphs(text));
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].pointTitle).toBe("1.2 有内容");
+  });
+
   it("纯文本按每 5 段聚合为一个知识点", () => {
     const paragraphs = Array.from({ length: 12 }, (_value, index) => `第 ${index + 1} 段内容`);
     const drafts = chunkKnowledgePoints(paragraphs);

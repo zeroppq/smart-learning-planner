@@ -78,6 +78,7 @@ export interface CoachLayerInput {
   answer: string;
   standardText: string;
   rejudgeNote?: string;
+  referenceNotes?: string;
 }
 
 export function buildLectureUserPrompt(point: CoachPointContext, standardText: string): string {
@@ -93,13 +94,18 @@ ${standardText}`;
 export function buildQuestionUserPrompt(
   point: CoachPointContext,
   layer: "practice" | "apply",
+  referenceNotes?: string,
 ): string {
   const kind = layer === "practice" ? "练习题" : "动手任务";
+  const referenceBlock = referenceNotes
+    ? `\n附录中的参考答案（只用于你出题时把握重点，不要原样透露给学生）：\n${referenceNotes}\n`
+    : "";
+
   return `知识点：${point.pointTitle}
 所属章节：${point.chapterName || "未分章"}
 资料原文：
 ${point.paragraphText}
-
+${referenceBlock}
 请出一道${kind}，用于检验学生是否真的会用这个知识点。`;
 }
 
@@ -111,12 +117,16 @@ export function buildJudgeUserPrompt(point: CoachPointContext, input: CoachLayer
     ? `\n学生申请重判时的补充说明：${input.rejudgeNote}\n请把补充说明作为新的上下文，但仍按同一套标准判定。`
     : "";
 
+  const referenceBlock = input.referenceNotes
+    ? `\n附录中的参考答案（只用于你核对要点，不要直接透露给学生）：\n${input.referenceNotes}\n`
+    : "";
+
   return `知识点：${point.pointTitle}
 当前判定层：${layerName}
 
 判定标准：
 ${input.standardText}
-
+${referenceBlock}
 题目或要求：
 ${input.question}
 

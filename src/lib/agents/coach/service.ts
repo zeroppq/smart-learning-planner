@@ -102,13 +102,14 @@ export function validateQuestion(raw: unknown): GeneratedQuestion {
 export async function generateQuestion(
   point: CoachPointContext,
   layer: "practice" | "apply",
+  referenceNotes?: string,
   callModel: CoachModelCaller = chatCompletion,
 ): Promise<GeneratedQuestion> {
   const content = await callModel(
     [
       { role: "system", content: COACH_SYSTEM_PROMPT },
       { role: "system", content: COACH_QUESTION_PROMPT },
-      { role: "user", content: buildQuestionUserPrompt(point, layer) },
+      { role: "user", content: buildQuestionUserPrompt(point, layer, referenceNotes) },
     ],
     COACH_OPTIONS,
   );

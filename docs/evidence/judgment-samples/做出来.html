@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>三层判定样例 · 做出来</title>
+<style>
+  body { margin: 0; padding: 32px; background: #f8fafc; font-family: "Microsoft YaHei", system-ui, sans-serif; color: #0f172a; }
+  .card { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+  h2 { font-size: 14px; margin: 20px 0 8px; color: #334155; }
+  blockquote { margin: 0; padding: 12px 14px; background: #f8fafc; border-left: 3px solid #cbd5e1; font-size: 14px; line-height: 1.7; }
+  ul { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8; color: #475569; }
+  .verdict { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .fail { background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; }
+  .feedback { font-size: 14px; line-height: 1.8; margin: 10px 0 0; }
+  .gap { font-size: 13px; line-height: 1.8; color: #9f1239; }
+  .tag { display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #f1f5f9; color: #475569; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>三层判定样例 · 第三层「做出来」</h1>
+    <p class="meta">真实模型调用记录 · 2026-11-14 · 模型 deepseek-v4.1-flash-1017 · 知识点：1.1 计算机的本质：把规则变成动作</p>
+    <p><span class="tag">应用型任务</span><span class="tag">提交文字方案</span><span class="tag">按标准评阅</span></p>
+
+    <h2>督学给的任务（摘要）</h2>
+    <blockquote>【动手任务：给自动售货机写规则】宿舍楼下有一台只卖矿泉水的自动售货机：每瓶 2 元，只接受 1 元硬币，投够钱就出一瓶并清零，钱不够就继续等下一次投币。请不要写代码，只写出这台机器执行的动作序列，并逐步标注它属于「取数、运算、比较、跳转」中的哪一类。</blockquote>
+
+    <h2>学生提交的方案</h2>
+    <blockquote>我的做法：动作序列由取数、运算（加法）、比较、跳转这几类基本动作构成，不出现「理解 / 知道 / 想要」这类无法执行成具体动作的描述；步骤顺序明确、每一步都可无歧义执行。</blockquote>
+
+    <h2>督学判定</h2>
+    <p><span class="verdict fail">未通过</span></p>
+    <p class="feedback">学生只说「动作序列由取数、运算（加法）、比较、跳转这几类基本动作构成」，但没有按第 (1) 问从头到尾列出每一步具体动作并逐步标注类别，关键步骤不完整。第 (5) 问要求反驳「动作一多就产生意识」完全缺失，第 (4) 问也未明确「先怀疑哪一步、为什么」。</p>
+    <h2>缺口</h2>
+    <ul class="gap">
+      <li>没有逐步列出投币、累加、比较、出货、清零的具体动作</li>
+      <li>没有给每一步标注所属基本动作类别</li>
+      <li>缺少对「动作多是否产生意识」的反驳</li>
+      <li>缺少排错顺序说明</li>
+      <li>整体只复述了评分要求，没有提交实际方案</li>
+    </ul>
+  </div>
+</body>
+</html>

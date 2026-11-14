@@ -245,3 +245,50 @@ export function recordStudySession(input: {
      VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(crypto.randomUUID(), input.knowledgePointId, input.stage, now, now, now);
 }
+/**
+ * 附录里的练习题参考答案不切成知识点，但在督学出题与评判时可以引用。
+ * 按知识点编号（如 1.1）在附录中定位对应答案块。
+ */
+export function getReferenceNotes(point: CoachPointContext): string {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      `SELECT m.material_text
+         FROM knowledge_point k
+         JOIN source_material m ON m.source_material_id = k.source_material_id
+        WHERE k.knowledge_point_id = ?`,
+    )
+    .get(point.knowledgePointId) as { material_text: string } | undefined;
+
+  const text = row?.material_text ?? "";
+  const appendixIndex = text.indexOf("## 附录");
+  if (appendixIndex === -1) {
+    return "";
+  }
+
+  const code = /^(\d+\.\d+)/.exec(point.pointTitle)?.[1];
+  if (!code) {
+    return "";
+  }
+
+  const blocks = text
+    .slice(appendixIndex)
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  const startIndex = blocks.findIndex((block) => block.startsWith(`**${code}`));
+  if (startIndex === -1) {
+    return "";
+  }
+
+  const collected: string[] = [];
+  for (let index = startIndex; index < blocks.length && collected.length < 3; index += 1) {
+    if (index > startIndex && /^\*\*\d+\.\d+/.test(blocks[index])) {
+      break;
+    }
+    collected.push(blocks[index]);
+  }
+
+  return collected.join("\n\n").slice(0, 1000);
+}

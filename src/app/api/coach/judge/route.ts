@@ -10,6 +10,7 @@ import {
   consumeRejudge,
   getMastery,
   getPointContext,
+  getReferenceNotes,
   recordLayerResult,
   recordStudySession,
 } from "@/lib/agents/coach/repository";
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      const generated = await generateQuestion(point, layer);
+      const generated = await generateQuestion(point, layer, getReferenceNotes(point));
       return NextResponse.json({
         ok: true,
         needAnswer: true,
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
       answer,
       standardText,
       rejudgeNote: isRejudge ? rejudgeNote : undefined,
+      referenceNotes: getReferenceNotes(point),
     });
   } catch (error) {
     if (error instanceof ModelConfigError) {

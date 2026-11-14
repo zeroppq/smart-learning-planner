@@ -5,7 +5,7 @@ import { detectFormat, parseMaterial, splitParagraphs } from "./parse";
 import {
   PRESET_COURSE_ID,
   PRESET_COURSE_NAME,
-  PRESET_COURSE_TEXT,
+  loadPresetCourseText,
 } from "./preset-course";
 
 export class MaterialFormatError extends Error {
@@ -189,7 +189,8 @@ export function ensurePresetCourse(): { materialId: string; seeded: boolean } {
     return { materialId: PRESET_COURSE_ID, seeded: false };
   }
 
-  const paragraphs = splitParagraphs(PRESET_COURSE_TEXT);
+  const presetText = loadPresetCourseText();
+  const paragraphs = splitParagraphs(presetText);
   const drafts = chunkKnowledgePoints(paragraphs);
   const now = nowIso();
 
@@ -227,7 +228,7 @@ export function ensurePresetCourse(): { materialId: string; seeded: boolean } {
     ).run(
       PRESET_COURSE_ID,
       PRESET_COURSE_NAME,
-      PRESET_COURSE_TEXT,
+      presetText,
       paragraphs.length,
       now,
       now,
