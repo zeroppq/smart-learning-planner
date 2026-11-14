@@ -1,0 +1,72 @@
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器与 IDE 本地配置
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 依赖与包管理缓存
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 构建与产物目录
+dist/
+build/
+out/
+target/
+*.egg-info/
+
+# 环境变量与密钥（.env.example 需要提交）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+credentials.json
+secrets.json
+
+# 日志与临时文件
+*.log
+logs/
+*.tmp
+*.temp
+
+# 测试与覆盖率产物
+coverage/
+.nyc_output/
+htmlcov/
+*.lcov
+
+# Next.js 构建产物与类型缓存
+.next/
+out/
+*.tsbuildinfo
+
+# 本地 IDE 工具环境
+.arts/
+
+# 本地数据库文件（可随时由脚本重建，不纳入版本控制）
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Superpowers 子 Agent 本地临时工作区
+.superpowers/
+
+# 说明：.codeartsdoer 为本地工具环境，由该目录内的 .gitignore 自行管理，不纳入版本控制。
+# openspec 为项目规格驱动开发配置，需要纳入版本控制。
