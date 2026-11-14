@@ -20,16 +20,16 @@ export type PlannerModelCaller = (
   options: { role: "planner"; timeoutMs: number; maxRetries: number },
 ) => Promise<string>;
 
-// 实测 GLM-5.3 生成 13 个知识点的路线约需 70 秒，因此规划超时放宽到 180 秒且不重试，
-// 避免超时后再等一轮；澄清问题单独限时 45 秒，失败时返回空列表不阻塞主流程。
+// 实测：GLM-5.3 生成 13 个知识点约 70-83 秒；切换为 deepseek-v4.1-flash-1017 后约 4 秒。
+// 因此规划超时设为 60 秒并保留一次重试，澄清问题限时 20 秒且不重试，失败时返回空列表。
 const ROUTE_MODEL_OPTIONS = {
   role: "planner" as const,
-  timeoutMs: 180_000,
-  maxRetries: 0,
+  timeoutMs: 60_000,
+  maxRetries: 1,
 };
 const CLARIFY_MODEL_OPTIONS = {
   role: "planner" as const,
-  timeoutMs: 45_000,
+  timeoutMs: 20_000,
   maxRetries: 0,
 };
 
