@@ -1,0 +1,35 @@
+d089126 完成比赛版第一组：工程地基与数据层
+ .env.example                                       |    8 +
+ .gitignore                                         |   72 +
+ docs/specs/需求简报v2.md                           |  323 ++
+ next-env.d.ts                                      |    6 +
+ next.config.ts                                     |    7 +
+ openspec/changes/archive/.gitkeep                  |    0
+ .../changes/build-competition-mvp/.openspec.yaml   |    2 +
+ openspec/changes/build-competition-mvp/design.md   |  158 +
+ openspec/changes/build-competition-mvp/proposal.md |   52 +
+ .../specs/agent-collaboration/spec.md              |   81 +
+ .../specs/knowledge-base/spec.md                   |   76 +
+ .../specs/learning-plan/spec.md                    |  100 +
+ .../specs/learning-session/spec.md                 |  152 +
+ .../specs/progress-visualization/spec.md           |   67 +
+ openspec/changes/build-competition-mvp/tasks.md    |   78 +
+ openspec/config.yaml                               |   27 +
+ openspec/specs/.gitkeep                            |    0
+ package-lock.json                                  | 3415 ++++++++++++++++++++
+ package.json                                       |   27 +
+ postcss.config.mjs                                 |    7 +
+ src/app/api/health/route.ts                        |   17 +
+ src/app/globals.css                                |   27 +
+ src/app/knowledge/page.tsx                         |   12 +
+ src/app/layout.tsx                                 |   63 +
+ src/app/page.tsx                                   |   20 +
+ src/app/plan/page.tsx                              |   12 +
+ src/app/progress/page.tsx                          |   12 +
+ src/lib/db.test.ts                                 |  123 +
+ src/lib/db.ts                                      |  157 +
+ src/lib/model-client.test.ts                       |  111 +
+ src/lib/model-client.ts                            |  120 +
+ tsconfig.json                                      |   23 +
+ vitest.config.ts                                   |   14 +
+ 33 files changed, 5369 insertions(+)

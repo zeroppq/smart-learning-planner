@@ -1,0 +1,48 @@
+44d9d8f 完成比赛版第五组：进度可视化与计划调整
+ docs/evidence/judgment-samples/做出来.html         |  46 ++
+ docs/evidence/judgment-samples/做对题.html         |  37 ++
+ docs/evidence/judgment-samples/讲清楚.html         |  41 ++
+ .../recordings/2026-11-14-group-5-issues.md        |  66 +++
+ .../screenshots/2026-11-14-judgment-做出来.png     | Bin 0 -> 81269 bytes
+ .../screenshots/2026-11-14-judgment-做对题.png     | Bin 0 -> 68834 bytes
+ .../screenshots/2026-11-14-judgment-讲清楚.png     | Bin 0 -> 52189 bytes
+ .../screenshots/2026-11-14-knowledge-page.png      | Bin 150654 -> 43109 bytes
+ .../2026-11-14-plan-adjustment-confirmed.png       | Bin 0 -> 128584 bytes
+ .../2026-11-14-plan-adjustment-proposal.png        | Bin 0 -> 153390 bytes
+ docs/evidence/screenshots/2026-11-14-plan-page.png | Bin 0 -> 247964 bytes
+ .../screenshots/2026-11-14-progress-page.png       | Bin 0 -> 126251 bytes
+ .../evidence/screenshots/2026-11-14-today-page.png | Bin 0 -> 54039 bytes
+ docs/evidence/screenshots/image copy 2.png         | Bin 0 -> 801149 bytes
+ docs/evidence/screenshots/image copy.png           | Bin 0 -> 282172 bytes
+ docs/evidence/screenshots/image.png                | Bin 0 -> 250286 bytes
+ docs/大学计算机基础_课堂讲义.md                    | 617 +++++++++++++++++++++
+ openspec/changes/build-competition-mvp/tasks.md    |  14 +-
+ scripts/check-lecture.mjs                          |  34 ++
+ scripts/check-mobile.mjs                           | 116 ++++
+ scripts/verify-adjust.mjs                          |  73 +++
+ src/app/api/coach/judge/route.ts                   |   4 +-
+ src/app/api/plans/adjust/route.ts                  |  12 +
+ src/app/api/plans/adjustment/confirm/route.ts      |  30 +
+ src/app/api/plans/adjustment/route.ts              |   7 +
+ src/app/api/progress/route.ts                      |   9 +
+ src/app/progress/page.tsx                          | 291 +++++++++-
+ src/lib/agents/coach/repository.ts                 |  47 ++
+ src/lib/agents/coach/service.ts                    |   3 +-
+ src/lib/agents/coach/system-prompt.ts              |  14 +-
+ src/lib/materials/chunk.test.ts                    |  64 +++
+ src/lib/materials/chunk.ts                         | 153 +++--
+ src/lib/materials/preset-course.ts                 | 107 ++--
+ src/lib/materials/repository.ts                    |   7 +-
+ src/lib/plans/adjustment.test.ts                   | 143 +++++
+ src/lib/plans/adjustment.ts                        | 245 ++++++++
+ src/lib/plans/progress.test.ts                     | 112 ++++
+ src/lib/plans/progress.ts                          | 201 +++++++
+ 38 files changed, 2329 insertions(+), 164 deletions(-)
+41473ba 补充连续学习天数归零断言
+ src/lib/plans/progress.test.ts | 1 +
+ 1 file changed, 1 insertion(+)
+81f81e8 清理浏览器自动生成的临时截图，保留规范命名的比赛材料
+ docs/evidence/screenshots/image copy 2.png | Bin 801149 -> 0 bytes
+ docs/evidence/screenshots/image copy.png   | Bin 282172 -> 0 bytes
+ docs/evidence/screenshots/image.png        | Bin 250286 -> 0 bytes
+ 3 files changed, 0 insertions(+), 0 deletions(-)

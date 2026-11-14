@@ -1,0 +1,17 @@
+787dc39 完成比赛版第六组：联调、异常兜底、演示数据与文档
+ docs/backlog.md                                    |  26 ++++
+ docs/demo-reset-guide.md                           |  74 +++++++++++
+ docs/deployment-guide.md                           | 138 +++++++++++++++++++++
+ .../recordings/2026-11-14-group-6-issues.md        |  65 ++++++++++
+ docs/evidence/screenshots/image.png                | Bin 0 -> 285271 bytes
+ docs/user-guide.md                                 |  77 ++++++++++++
+ openspec/changes/build-competition-mvp/tasks.md    |  12 +-
+ scripts/reset-demo.mjs                             | 128 +++++++++++++++++++
+ scripts/verify-e2e.mjs                             | 131 +++++++++++++++++++
+ scripts/verify-errors.mjs                          | 135 ++++++++++++++++++++
+ src/lib/agents/planner/schema.test.ts              |  25 ++--
+ src/lib/agents/planner/schema.ts                   |  12 +-
+ 12 files changed, 802 insertions(+), 21 deletions(-)
+8ce8da7 清理浏览器自动生成的临时截图
+ docs/evidence/screenshots/image.png | Bin 285271 -> 0 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)

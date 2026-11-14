@@ -1,0 +1,28 @@
+4dd946c 完成比赛版第三组：规划师与学习计划
+ .env.example                                    |   6 +-
+ docs/evidence/screenshots/image.png             | Bin 0 -> 150654 bytes
+ docs/planner-interface-guide.md                 |  68 +++++
+ openspec/changes/build-competition-mvp/tasks.md |  14 +-
+ scripts/measure-planner.mjs                     |  44 +++
+ scripts/verify-model.mjs                        | 131 +++++++++
+ scripts/verify-plan.mjs                         |  51 ++++
+ src/app/api/goals/route.ts                      |  43 +++
+ src/app/api/plans/current/route.ts              |   6 +
+ src/app/api/plans/route.ts                      | 112 ++++++++
+ src/app/plan/page.tsx                           | 346 +++++++++++++++++++++++-
+ src/lib/agents/json.ts                          |  29 ++
+ src/lib/agents/planner/schema.test.ts           | 154 +++++++++++
+ src/lib/agents/planner/schema.ts                | 175 ++++++++++++
+ src/lib/agents/planner/service.test.ts          |  72 +++++
+ src/lib/agents/planner/service.ts               |  98 +++++++
+ src/lib/agents/planner/system-prompt.ts         |  76 ++++++
+ src/lib/db.ts                                   |  20 ++
+ src/lib/plans/repository.ts                     | 278 +++++++++++++++++++
+ 19 files changed, 1714 insertions(+), 9 deletions(-)
+0667bfd 补充组 3 证据材料，完成模型切换回归
+ .../recordings/2026-11-14-group-3-issues.md        |  32 +++++++++++++++++++++
+ .../2026-11-14-group-3-model-switch-regression.md  |  31 ++++++++++++++++++++
+ .../{image.png => 2026-11-14-knowledge-page.png}   | Bin
+ scripts/verify-agent-models.mjs                    |  29 +++++++++++++++++++
+ src/lib/agents/planner/service.ts                  |  10 +++----
+ 5 files changed, 97 insertions(+), 5 deletions(-)

@@ -1,0 +1,22 @@
+ca113b1 完成比赛版第四组：督学与三层判定
+ docs/coach-interface-guide.md                      |  86 +++
+ .../recordings/2026-11-14-group-4-issues.md        |  44 ++
+ openspec/changes/build-competition-mvp/tasks.md    |  22 +-
+ scripts/verify-coach-retry.mjs                     |  63 ++
+ scripts/verify-coach.mjs                           | 152 +++++
+ src/app/api/coach/ask/route.ts                     |  73 +++
+ src/app/api/coach/judge/route.ts                   | 182 ++++++
+ src/app/api/coach/review/route.ts                  |  37 ++
+ src/app/api/coach/start/route.ts                   |  71 +++
+ src/app/page.tsx                                   | 680 ++++++++++++++++++++-
+ src/lib/agents/coach/flow.test.ts                  | 121 ++++
+ src/lib/agents/coach/repository.test.ts            | 115 ++++
+ src/lib/agents/coach/repository.ts                 | 247 ++++++++
+ src/lib/agents/coach/service.test.ts               |  81 +++
+ src/lib/agents/coach/service.ts                    | 180 ++++++
+ src/lib/agents/coach/standard.ts                   |  44 ++
+ src/lib/agents/coach/system-prompt.ts              | 151 +++++
+ src/lib/db.ts                                      |   1 +
+ src/lib/retriever.test.ts                          |  61 ++
+ src/lib/retriever.ts                               |  87 +++
+ 20 files changed, 2477 insertions(+), 21 deletions(-)

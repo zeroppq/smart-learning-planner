@@ -1,0 +1,26 @@
+0a98c1a 完成比赛版第二组：知识库上传、解析与知识点溯源
+ .env.example                                       |  14 +-
+ docs/evidence/README.md                            |  19 ++
+ docs/evidence/git-log/.gitkeep                     |   3 +
+ docs/evidence/prompts/.gitkeep                     |   3 +
+ docs/evidence/recordings/.gitkeep                  |   3 +
+ docs/evidence/screenshots/.gitkeep                 |   3 +
+ docs/knowledge-base-format-guide.md                |  47 ++++
+ openspec/changes/build-competition-mvp/design.md   |   2 +-
+ openspec/changes/build-competition-mvp/tasks.md    |  16 +-
+ package-lock.json                                  |  20 +-
+ package.json                                       |   5 +-
+ .../knowledge-points/[knowledgePointId]/route.ts   |  16 ++
+ .../[materialId]/knowledge-points/route.ts         |  23 ++
+ src/app/api/materials/route.ts                     |  65 ++++++
+ src/app/knowledge/page.tsx                         | 240 +++++++++++++++++++-
+ src/lib/materials/api.test.ts                      | 132 +++++++++++
+ src/lib/materials/chunk.test.ts                    |  68 ++++++
+ src/lib/materials/chunk.ts                         | 145 ++++++++++++
+ src/lib/materials/parse.test.ts                    |  87 ++++++++
+ src/lib/materials/parse.ts                         | 103 +++++++++
+ src/lib/materials/preset-course.ts                 | 106 +++++++++
+ src/lib/materials/repository.ts                    | 244 +++++++++++++++++++++
+ src/lib/model-client.test.ts                       | 103 +++++++--
+ src/lib/model-client.ts                            |  36 ++-
+ 24 files changed, 1467 insertions(+), 36 deletions(-)
