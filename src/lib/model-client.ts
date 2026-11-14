@@ -1,3 +1,5 @@
+export type AgentRole = "planner" | "coach";
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -7,6 +9,10 @@ export interface ChatOptions {
   timeoutMs?: number;
   maxRetries?: number;
   fetchImpl?: typeof fetch;
+  /** 直接指定模型名，优先级最高 */
+  model?: string;
+  /** 按智能体选择模型，优先级低于 model、高于默认模型 */
+  role?: AgentRole;
 }
 
 export interface ModelConfig {
@@ -32,16 +38,28 @@ export class ModelRequestError extends Error {
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_RETRIES = 1;
 
-export function getModelConfig(): ModelConfig {
+export function resolveModelName(role?: AgentRole): string {
+  const fallback = (process.env.MODEL_NAME ?? "").trim();
+
+  if (role === "planner") {
+    return (process.env.MODEL_NAME_PLANNER ?? "").trim() || fallback;
+  }
+  if (role === "coach") {
+    return (process.env.MODEL_NAME_COACH ?? "").trim() || fallback;
+  }
+  return fallback;
+}
+
+export function getModelConfig(role?: AgentRole): ModelConfig {
   return {
     baseUrl: (process.env.MODEL_API_BASE_URL ?? "").trim().replace(/\/+$/, ""),
     apiKey: (process.env.MODEL_API_KEY ?? "").trim(),
-    model: (process.env.MODEL_NAME ?? "").trim(),
+    model: resolveModelName(role),
   };
 }
 
-export function isModelConfigured(): boolean {
-  const config = getModelConfig();
+export function isModelConfigured(role?: AgentRole): boolean {
+  const config = getModelConfig(role);
   return Boolean(config.baseUrl && config.apiKey && config.model);
 }
 
@@ -49,10 +67,12 @@ export async function chatCompletion(
   messages: ChatMessage[],
   options: ChatOptions = {},
 ): Promise<string> {
-  const { baseUrl, apiKey, model } = getModelConfig();
-  if (!baseUrl || !apiKey || !model) {
+  const { baseUrl, apiKey } = getModelConfig();
+  const selectedModel = (options.model ?? "").trim() || resolveModelName(options.role);
+
+  if (!baseUrl || !apiKey || !selectedModel) {
     throw new ModelConfigError(
-      "模型服务尚未配置，请设置 MODEL_API_BASE_URL、MODEL_API_KEY 与 MODEL_NAME 三个环境变量。",
+      "模型服务尚未配置，请设置 MODEL_API_BASE_URL、MODEL_API_KEY，以及 MODEL_NAME（或 MODEL_NAME_PLANNER / MODEL_NAME_COACH）。",
     );
   }
 
@@ -73,7 +93,7 @@ export async function chatCompletion(
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({ model, messages, stream: false }),
+        body: JSON.stringify({ model: selectedModel, messages, stream: false }),
         signal: controller.signal,
       });
 

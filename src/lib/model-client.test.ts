@@ -1,18 +1,43 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ModelConfigError, ModelRequestError, chatCompletion } from "./model-client";
+import {
+  ModelConfigError,
+  ModelRequestError,
+  chatCompletion,
+  resolveModelName,
+} from "./model-client";
+
+interface MockResponse {
+  baseUrl: string;
+  callCount: () => number;
+  requestedModels: () => string[];
+}
 
 const servers: Server[] = [];
 
 function startMockServer(
-  handler: (requestCount: number, response: import("node:http").ServerResponse) => void,
-): Promise<{ baseUrl: string; callCount: () => number }> {
+  handler: (requestCount: number, response: ServerResponse) => void,
+): Promise<MockResponse> {
   let calls = 0;
+  const models: string[] = [];
   const server = createServer((request, response) => {
     calls += 1;
-    request.resume();
-    handler(calls, response);
+    let raw = "";
+    request.on("data", (chunk) => {
+      raw += chunk;
+    });
+    request.on("end", () => {
+      try {
+        const parsed = JSON.parse(raw) as { model?: string };
+        if (typeof parsed.model === "string") {
+          models.push(parsed.model);
+        }
+      } catch {
+        models.push("");
+      }
+      handler(calls, response);
+    });
   });
   servers.push(server);
 
@@ -22,6 +47,7 @@ function startMockServer(
       resolve({
         baseUrl: `http://127.0.0.1:${address.port}`,
         callCount: () => calls,
+        requestedModels: () => models,
       });
     });
   });
@@ -30,7 +56,16 @@ function startMockServer(
 function setModelEnv(baseUrl: string): void {
   vi.stubEnv("MODEL_API_BASE_URL", baseUrl);
   vi.stubEnv("MODEL_API_KEY", "test-key");
-  vi.stubEnv("MODEL_NAME", "test-model");
+  vi.stubEnv("MODEL_NAME", "default-model");
+  vi.stubEnv("MODEL_NAME_PLANNER", "");
+  vi.stubEnv("MODEL_NAME_COACH", "");
+}
+
+function replyWith(content: string) {
+  return (_count: number, response: ServerResponse) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ choices: [{ message: { content } }] }));
+  };
 }
 
 afterEach(() => {
@@ -48,6 +83,8 @@ describe("模型客户端", () => {
     vi.stubEnv("MODEL_API_BASE_URL", "");
     vi.stubEnv("MODEL_API_KEY", "");
     vi.stubEnv("MODEL_NAME", "");
+    vi.stubEnv("MODEL_NAME_PLANNER", "");
+    vi.stubEnv("MODEL_NAME_COACH", "");
 
     await expect(
       chatCompletion([{ role: "user", content: "你好" }]),
@@ -55,18 +92,14 @@ describe("模型客户端", () => {
   });
 
   it("正常调用返回模型内容", async () => {
-    const mock = await startMockServer((_count, response) => {
-      response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(
-        JSON.stringify({ choices: [{ message: { content: "这是模型回答" } }] }),
-      );
-    });
+    const mock = await startMockServer(replyWith("这是模型回答"));
     setModelEnv(mock.baseUrl);
 
     const content = await chatCompletion([{ role: "user", content: "你好" }]);
 
     expect(content).toBe("这是模型回答");
     expect(mock.callCount()).toBe(1);
+    expect(mock.requestedModels()).toEqual(["default-model"]);
   });
 
   it("服务端 500 时自动重试一次", async () => {
@@ -107,5 +140,49 @@ describe("模型客户端", () => {
       (error: unknown) =>
         error instanceof ModelRequestError && error.message.includes("超时"),
     );
+  });
+
+  it("规划师与督学各用各的模型", async () => {
+    const mock = await startMockServer(replyWith("按角色返回"));
+    setModelEnv(mock.baseUrl);
+    vi.stubEnv("MODEL_NAME_PLANNER", "GLM-5.3");
+    vi.stubEnv("MODEL_NAME_COACH", "DeepSeek-V4.1-Flash");
+
+    await chatCompletion([{ role: "user", content: "排计划" }], { role: "planner" });
+    await chatCompletion([{ role: "user", content: "抽查我" }], { role: "coach" });
+
+    expect(mock.requestedModels()).toEqual(["GLM-5.3", "DeepSeek-V4.1-Flash"]);
+  });
+
+  it("角色模型未配置时回落到默认模型", async () => {
+    const mock = await startMockServer(replyWith("回落"));
+    setModelEnv(mock.baseUrl);
+
+    await chatCompletion([{ role: "user", content: "排计划" }], { role: "planner" });
+
+    expect(mock.requestedModels()).toEqual(["default-model"]);
+  });
+
+  it("显式传入 model 时优先级最高", async () => {
+    const mock = await startMockServer(replyWith("覆盖"));
+    setModelEnv(mock.baseUrl);
+    vi.stubEnv("MODEL_NAME_PLANNER", "GLM-5.3");
+
+    await chatCompletion([{ role: "user", content: "你好" }], {
+      role: "planner",
+      model: "临时指定模型",
+    });
+
+    expect(mock.requestedModels()).toEqual(["临时指定模型"]);
+  });
+
+  it("按角色解析模型名的规则可单独验证", () => {
+    vi.stubEnv("MODEL_NAME", "默认");
+    vi.stubEnv("MODEL_NAME_PLANNER", "规划模型");
+    vi.stubEnv("MODEL_NAME_COACH", "");
+
+    expect(resolveModelName()).toBe("默认");
+    expect(resolveModelName("planner")).toBe("规划模型");
+    expect(resolveModelName("coach")).toBe("默认");
   });
 });
