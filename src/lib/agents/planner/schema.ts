@@ -75,18 +75,14 @@ export function validateRoute(
     }
     seen.add(pointId);
 
-    const prerequisite =
+    let prerequisite =
       typeof item.prerequisite_point_id === "string" && item.prerequisite_point_id.trim()
         ? item.prerequisite_point_id.trim()
         : null;
 
-    if (prerequisite) {
-      if (prerequisite === pointId) {
-        throw new PlanValidationError("路线中存在把自己当作前置的节点。");
-      }
-      if (!validPointIds.has(prerequisite)) {
-        throw new PlanValidationError("路线中存在指向不存在知识点的前置关系。");
-      }
+    if (prerequisite && (prerequisite === pointId || !validPointIds.has(prerequisite))) {
+      // 模型偶尔会写错前置 ID：丢弃这条依赖比整份计划作废更稳，知识点本身仍然保留。
+      prerequisite = null;
     }
 
     const stage = VALID_STAGES.includes(item.stage as PlanStage)

@@ -30,13 +30,24 @@ describe("规划师路线校验", () => {
     ).toThrow(PlanValidationError);
   });
 
-  it("拒绝自己当前置", () => {
-    expect(() =>
-      validateRoute(
-        { route: [{ knowledge_point_id: "kp-1", prerequisite_point_id: "kp-1" }] },
-        ids,
-      ),
-    ).toThrow(PlanValidationError);
+  it("自己当前置时丢弃这条依赖，知识点保留", () => {
+    const route = validateRoute(
+      { route: [{ knowledge_point_id: "kp-1", prerequisite_point_id: "kp-1" }] },
+      ids,
+    );
+
+    expect(route).toHaveLength(1);
+    expect(route[0].prerequisite_point_id).toBeNull();
+  });
+
+  it("前置指向不存在的知识点时丢弃依赖，不整单失败", () => {
+    const route = validateRoute(
+      { route: [{ knowledge_point_id: "kp-1", prerequisite_point_id: "kp-不存在" }] },
+      ids,
+    );
+
+    expect(route).toHaveLength(1);
+    expect(route[0].prerequisite_point_id).toBeNull();
   });
 
   it("拒绝形成环的前置关系", () => {
