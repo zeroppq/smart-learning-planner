@@ -34,12 +34,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (typeof payload.goalId === "string" && payload.goalId !== goal.learning_goal_id) {
-    return NextResponse.json(
-      { ok: false, error: "目标已变化，请刷新页面后重新生成。" },
-      { status: 409 },
-    );
-  }
 
   const answers = Array.isArray(payload.answers)
     ? payload.answers
