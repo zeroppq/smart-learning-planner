@@ -14,6 +14,12 @@ function brief(text, max = 60) {
   return normalized.length > max ? `${normalized.slice(0, max)}…` : normalized;
 }
 
+function printVerdict(tag, data) {
+  console.log("VERDICT |", tag, "|", data.verdict, "|", brief(data.feedback, 120));
+  console.log("GAPS |", tag, "|", JSON.stringify(data.gaps ?? []));
+  console.log("SUGGESTIONS |", tag, "|", JSON.stringify(data.suggestions ?? []));
+}
+
 const planResponse = await fetch(`${BASE}/api/plans/current`);
 const planData = await planResponse.json();
 const route = planData.plan?.route ?? [];
@@ -48,7 +54,7 @@ const weakExplain = await post("/api/coach/judge", {
   answer: "大概就是那个意思吧，我也说不太清楚。",
 });
 console.log("INPUT | 大概就是那个意思吧，我也说不太清楚。");
-console.log("VERDICT |", weakExplain.data.verdict, "|", brief(weakExplain.data.feedback, 120));
+printVerdict("含糊回答", weakExplain.data);
 
 console.log("\nSTEP 3 | 第一层 讲清楚：再提交完整答案");
 const goodExplain = await post("/api/coach/judge", {
@@ -58,7 +64,7 @@ const goodExplain = await post("/api/coach/judge", {
   answer: lectureAnswer,
 });
 console.log("INPUT |", brief(lectureAnswer, 80));
-console.log("VERDICT |", goodExplain.data.verdict, "|", brief(goodExplain.data.feedback, 120));
+printVerdict("完整回答", goodExplain.data);
 
 console.log("\nSTEP 4 | 第二层 做对题：先出题，再作答");
 const practiceQuestion = await post("/api/coach/judge", {
@@ -78,7 +84,7 @@ const practiceJudge = await post("/api/coach/judge", {
 });
 console.log("QUESTION |", brief(practiceQuestion.data.question, 100));
 console.log("INPUT |", brief(practiceAnswer, 80));
-console.log("VERDICT |", practiceJudge.data.verdict, "|", brief(practiceJudge.data.feedback, 120));
+printVerdict("练习作答", practiceJudge.data);
 
 console.log("\nSTEP 5 | 第三层 做出来：先出任务，再提交方案");
 const applyQuestion = await post("/api/coach/judge", {
@@ -96,7 +102,7 @@ const applyJudge = await post("/api/coach/judge", {
 });
 console.log("QUESTION |", brief(applyQuestion.data.question, 100));
 console.log("INPUT |", brief(applyAnswer, 80));
-console.log("VERDICT |", applyJudge.data.verdict, "|", brief(applyJudge.data.feedback, 120));
+printVerdict("应用作答", applyJudge.data);
 console.log("MASTERY |", applyJudge.data.mastery?.mastery_status ?? "unknown");
 
 console.log("\nSTEP 6 | 重判样例：另一个知识点先失败，再补充说明重判");
@@ -108,7 +114,7 @@ const failResult = await post("/api/coach/judge", {
   question: secondQuestion,
   answer: "不知道。",
 });
-console.log("FIRST |", failResult.data.verdict, "|", brief(failResult.data.feedback, 100));
+printVerdict("重判前", failResult.data);
 
 const rejudgeResult = await post("/api/coach/judge", {
   knowledgePointId: secondPoint.knowledge_point_id,
@@ -118,7 +124,7 @@ const rejudgeResult = await post("/api/coach/judge", {
   rejudge: true,
   rejudgeNote: "刚才紧张没答上来，补充说明后重新回答。",
 });
-console.log("REJUDGE |", rejudgeResult.data.verdict, "|", brief(rejudgeResult.data.feedback, 100));
+printVerdict("重判", rejudgeResult.data);
 
 const repeatRejudge = await post("/api/coach/judge", {
   knowledgePointId: secondPoint.knowledge_point_id,

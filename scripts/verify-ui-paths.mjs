@@ -12,7 +12,14 @@ const MANUAL_STEPS = {
     "手工清单（脚本不可用时按此验证）：",
     "1. 浏览器打开 http://127.0.0.1:3000/ （今日学习页）",
     "2. 找到「开场抽查」卡片，点击「现在就抽查我」按钮",
-    "3. 预期：页面出现「抽查题已准备好。」提示，且下方出现抽查题目与答案输入框",
+    "3. 预期：抽查卡片里出现抽查题目与「写下你的回忆答案」输入框",
+  ],
+  "explain-structured-feedback": [
+    "手工清单（脚本不可用时按此验证）：",
+    "1. 浏览器打开 http://127.0.0.1:3000/ （今日学习页）",
+    "2. 点击今日任务第一条的「开始学习」，等讲解与判定标准出现",
+    "3. 在回答框输入「大概就是那个意思吧，我也说不太清楚。」，点「提交判定」",
+    "4. 预期：出现「未通过」徽章；「达标情况」清单里每条标准标为已达标或未达标，未达标条目高亮显示缺口；如有建议则显示在「督学建议（不影响判定）」区",
   ],
 };
 
@@ -112,10 +119,28 @@ function makeClient(socket) {
     return result.result?.result?.value;
   }
 
-  async function open(path) {
+  async function waitForAny(needles, timeoutMs = 30000) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      const text = await bodyText();
+      if (typeof text === "string") {
+        const matched = needles.find((needle) => text.includes(needle));
+        if (matched) {
+          return matched;
+        }
+      }
+      await sleep(500);
+    }
+    return null;
+  }
+
+  async function open(path, readyTexts = ["计划 v", "还没有学习计划"]) {
     await send("Page.enable");
     await send("Page.navigate", { url: `${BASE}${path}` });
-    await sleep(2500);
+    const ready = await waitForAny(readyTexts, 30000);
+    if (!ready) {
+      throw new Error(`页面 ${path} 加载超时（30 秒内没有出现就绪标志 ${JSON.stringify(readyTexts)}）。`);
+    }
   }
 
   async function bodyText() {
@@ -134,14 +159,22 @@ function makeClient(socket) {
     return false;
   }
 
-  async function clickByText(selector, text) {
-    return evaluate(`(() => {
-      const els = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
-      const el = els.find((item) => item.textContent && item.textContent.includes(${JSON.stringify(text)}));
-      if (!el) return false;
-      el.click();
-      return true;
-    })()`);
+  async function clickByText(selector, text, timeoutMs = 15000) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      const clicked = await evaluate(`(() => {
+        const els = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
+        const el = els.find((item) => item.textContent && item.textContent.includes(${JSON.stringify(text)}));
+        if (!el) return false;
+        el.click();
+        return true;
+      })()`);
+      if (clicked) {
+        return true;
+      }
+      await sleep(500);
+    }
+    return false;
   }
 
   async function fill(selector, value) {
@@ -155,7 +188,7 @@ function makeClient(socket) {
     })()`);
   }
 
-  return { send, evaluate, open, bodyText, waitForText, clickByText, fill };
+  return { send, evaluate, open, bodyText, waitForText, waitForAny, clickByText, fill };
 }
 
 const paths = [
@@ -163,13 +196,67 @@ const paths = [
     name: "smoke-review-button",
     run: async (page) => {
       await page.open("/");
-      const clicked = await page.clickByText("button", "现在就抽查我");
-      if (!clicked) {
-        throw new Error("没有找到「现在就抽查我」按钮");
+      await sleep(1500);
+      let appeared = false;
+      for (let attempt = 0; attempt < 3 && !appeared; attempt += 1) {
+        const clicked = await page.clickByText("button", "现在就抽查我");
+        if (!clicked) {
+          throw new Error("没有找到「现在就抽查我」按钮");
+        }
+        appeared = await page.waitForText("提交抽查", attempt === 0 ? 20000 : 60000);
       }
-      const appeared = await page.waitForText("抽查题已准备好", 30000);
       if (!appeared) {
-        throw new Error("点击后 30 秒内没有出现「抽查题已准备好」提示");
+        throw new Error("点击「现在就抽查我」重试 3 次后仍没有出现抽查题目与提交按钮");
+      }
+    },
+  },
+  {
+    name: "explain-structured-feedback",
+    run: async (page) => {
+      await page.open("/");
+      const started = await page.clickByText("button", "开始学习");
+      if (!started) {
+        throw new Error("没有找到今日任务的「开始学习」按钮");
+      }
+      const standardReady = await page.waitForText("督学讲解", 60000);
+      if (!standardReady) {
+        throw new Error("点击开始学习后 60 秒内没有出现讲解与判定标准");
+      }
+      await sleep(500);
+      const filled = await page.fill("textarea", "大概就是那个意思吧，我也说不太清楚。");
+      if (!filled) {
+        throw new Error("没有找到回答输入框");
+      }
+      let checklist = false;
+      for (let attempt = 0; attempt < 3 && !checklist; attempt += 1) {
+        if (attempt > 0) {
+          const refilled = await page.fill("textarea", "大概就是那个意思吧，我也说不太清楚。");
+          if (!refilled) {
+            throw new Error("重试时没有找到回答输入框");
+          }
+        }
+        const submitted = await page.clickByText("button", "提交判定");
+        if (!submitted) {
+          throw new Error("没有找到「提交判定」按钮");
+        }
+        const outcome = await page.waitForAny(["达标情况", "判定未完成"], 60000);
+        if (outcome === "判定未完成") {
+          continue;
+        }
+        checklist = outcome === "达标情况";
+      }
+      if (!checklist) {
+        const text = await page.bodyText();
+        console.log("DEBUG_TEXT |", JSON.stringify(String(text ?? "").slice(0, 1500)));
+        throw new Error("提交后重试 3 次仍没有出现结论徽章与「达标情况」清单");
+      }
+      const text = await page.bodyText();
+      if (!text.includes("部分通过") && !text.includes("未通过")) {
+        throw new Error("判定结论不是「部分通过」或「未通过」");
+      }
+      const gapShown = await page.waitForText("未达标：", 10000);
+      if (!gapShown) {
+        throw new Error("达标清单里没有出现高亮的「未达标」缺口条目");
       }
     },
   },

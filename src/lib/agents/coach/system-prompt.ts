@@ -23,9 +23,10 @@ export const COACH_LECTURE_PROMPT = `请用通俗中文讲解下面这个知识�
 要求：
 1. 先一句话说清它是什么、解决什么问题。
 2. 再讲它的关键步骤或关键原理。
-3. 最后给一个贴近课程的小例子。
-4. 全文不超过 400 字；引用资料时标注【文档名 第N段】。
-5. 直接输出讲解正文，不要输出 JSON。`;
+3. 给一个贴近课程的小例子。
+4. 最后用一两句话说明它与本章其他内容的联系，帮助学生建立脉络；这部分只是拓展，不作为判定要求。
+5. 全文不超过 400 字；引用资料时标注【文档名 第N段】。
+6. 直接输出讲解正文，不要输出 JSON。`;
 
 export const COACH_QUESTION_PROMPT = `请根据知识点出一道检验题。
 
@@ -40,13 +41,16 @@ export const COACH_QUESTION_PROMPT = `请根据知识点出一道检验题。
 export const COACH_JUDGE_PROMPT = `请按给定标准判定学生的回答。
 
 输出格式：
-{"verdict":"pass","feedback":"为什么过或不过","gaps":["具体缺口"]}
+{"verdict":"pass","feedback":"为什么过或不过","gaps":[{"standard_index":1,"detail":"具体缺口"}],"suggestions":["标准之外的建议"]}
 
 规则：
 1. verdict 只能是 pass（通过）、partial（部分通过）、fail（未通过）。
-2. feedback 用两句话说明理由，必须引用学生的原话或缺失点。
-3. gaps 列出没达到的标准条目；通过时给空数组。
-4. 不得因为学生说"差不多就行"而放宽标准。`;
+2. 只依据「当前判定层」的标准条目判定；其他层的标准、讲解里的拓展内容（例如与本章其他内容的关系）都不得作为不通过的依据，只能写进 suggestions。
+3. gaps 每条对应一条没达到的当前层标准：standard_index 填该条标准的序号（从 1 开始），detail 用一句话说清具体缺什么；通过时给空数组。
+4. 判 partial 或 fail 时，gaps 至少要有一条；判 pass 时 gaps 必须为空数组。
+5. feedback 用两句话说明理由，必须引用学生的原话或缺失点。
+6. 照读原文不算"用自己的话"；不得因为学生说"差不多就行"而放宽标准。
+7. 学生举的例子只要与课程内容相关（真实设备的实物对应、或贴切的类比都算），即视为"贴近课程的例子"，不得仅因为它是类比而判不通过。`;
 
 export const COACH_REVIEW_PROMPT = `请针对一个学过的知识点出一道快速回忆题。
 
@@ -76,7 +80,7 @@ export interface CoachLayerInput {
   layer: "explain" | "practice" | "apply";
   question: string;
   answer: string;
-  standardText: string;
+  standardItems: string[];
   rejudgeNote?: string;
   referenceNotes?: string;
 }
@@ -113,6 +117,10 @@ export function buildJudgeUserPrompt(point: CoachPointContext, input: CoachLayer
   const layerName =
     input.layer === "explain" ? "讲清楚" : input.layer === "practice" ? "做对题" : "做出来";
 
+  const standardLines = input.standardItems
+    .map((item, index) => `${index + 1}. ${item}`)
+    .join("\n");
+
   const rejudgeBlock = input.rejudgeNote
     ? `\n学生申请重判时的补充说明：${input.rejudgeNote}\n请把补充说明作为新的上下文，但仍按同一套标准判定。`
     : "";
@@ -124,8 +132,8 @@ export function buildJudgeUserPrompt(point: CoachPointContext, input: CoachLayer
   return `知识点：${point.pointTitle}
 当前判定层：${layerName}
 
-判定标准：
-${input.standardText}
+判定标准（只依据以下当前层标准，按序号对应）：
+${standardLines}
 ${referenceBlock}
 题目或要求：
 ${input.question}

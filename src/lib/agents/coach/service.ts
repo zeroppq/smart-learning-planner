@@ -24,10 +24,16 @@ export type CoachModelCaller = (
 // 督学属于高频交互，实测新模型毫秒级返回，30 秒足够，并保留一次重试。
 const COACH_OPTIONS = { role: "coach" as const, timeoutMs: 30_000, maxRetries: 1 };
 
+export interface JudgeGap {
+  standard_index: number;
+  detail: string;
+}
+
 export interface JudgeVerdict {
   verdict: "pass" | "partial" | "fail";
   feedback: string;
-  gaps: string[];
+  gaps: JudgeGap[];
+  suggestions: string[];
 }
 
 export interface GeneratedQuestion {
@@ -37,11 +43,16 @@ export interface GeneratedQuestion {
 
 const VERDICTS = ["pass", "partial", "fail"] as const;
 
-export function validateVerdict(raw: unknown): JudgeVerdict {
+export function validateVerdict(raw: unknown, standardCount: number): JudgeVerdict {
   if (!raw || typeof raw !== "object") {
     throw new Error("督学返回的判定不是对象。");
   }
-  const data = raw as { verdict?: unknown; feedback?: unknown; gaps?: unknown };
+  const data = raw as {
+    verdict?: unknown;
+    feedback?: unknown;
+    gaps?: unknown;
+    suggestions?: unknown;
+  };
   const verdict = VERDICTS.includes(data.verdict as (typeof VERDICTS)[number])
     ? (data.verdict as JudgeVerdict["verdict"])
     : null;
@@ -51,14 +62,50 @@ export function validateVerdict(raw: unknown): JudgeVerdict {
   }
 
   const feedback = typeof data.feedback === "string" && data.feedback.trim() ? data.feedback.trim() : "已记录本次判定。";
-  const gaps = Array.isArray(data.gaps)
-    ? data.gaps
-        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-        .map((item) => item.trim())
-        .slice(0, 5)
-    : [];
 
-  return { verdict, feedback, gaps };
+  const suggestions: string[] = [];
+  const gaps: JudgeGap[] = [];
+
+  const rawGaps = Array.isArray(data.gaps) ? data.gaps : [];
+  for (const item of rawGaps.slice(0, 5)) {
+    if (typeof item === "string" && item.trim()) {
+      suggestions.push(item.trim());
+      continue;
+    }
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const gap = item as { standard_index?: unknown; detail?: unknown };
+    const index = Number(gap.standard_index);
+    const detail = typeof gap.detail === "string" ? gap.detail.trim() : "";
+    if (!Number.isInteger(index) || index < 1 || index > standardCount) {
+      if (detail) {
+        suggestions.push(detail);
+      }
+      continue;
+    }
+    if (!detail) {
+      continue;
+    }
+    gaps.push({ standard_index: index, detail });
+  }
+
+  if (verdict !== "pass" && gaps.length === 0) {
+    throw new Error("督学判了不过，但没有给出对应标准的缺口。");
+  }
+  if (verdict === "pass" && gaps.length > 0) {
+    gaps.length = 0;
+  }
+
+  if (Array.isArray(data.suggestions)) {
+    for (const item of data.suggestions.slice(0, 5)) {
+      if (typeof item === "string" && item.trim()) {
+        suggestions.push(item.trim());
+      }
+    }
+  }
+
+  return { verdict, feedback, gaps, suggestions: suggestions.slice(0, 5) };
 }
 
 export async function generateLecture(
@@ -131,7 +178,7 @@ export async function judgeAnswer(
     COACH_OPTIONS,
   );
 
-  return validateVerdict(extractJson(content));
+  return validateVerdict(extractJson(content), input.standardItems.length);
 }
 
 export async function generateReviewQuestion(

@@ -10,13 +10,13 @@ export function buildJudgeStandard(point: {
   chapterName: string;
 }): JudgeStandard {
   const title = point.pointTitle;
-  const chapter = point.chapterName || "本章";
+
 
   return {
     explain: [
-      `能用自己的话说清「${title}」是什么、解决什么问题`,
-      `能说明它与${chapter}其他概念的关系`,
-      "被追问细节时不含糊，也不是照读原文",
+      `能用自己的话说清「${title}」是什么`,
+      `能说明它解决什么问题`,
+      `能举一个贴近课程的例子`,
     ],
     practice: [
       "能独立做对至少一道基础题",

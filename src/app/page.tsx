@@ -41,10 +41,16 @@ interface Mastery {
   rejudge_used: number;
 }
 
+interface JudgeGap {
+  standard_index: number;
+  detail: string;
+}
+
 interface Verdict {
   verdict: "pass" | "partial" | "fail";
   feedback: string;
-  gaps: string[];
+  gaps: JudgeGap[];
+  suggestions: string[];
 }
 
 interface ReviewItem {
@@ -238,7 +244,8 @@ export default function TodayPage() {
         verdict?: "pass" | "partial" | "fail";
         retryPass?: boolean;
         feedback?: string;
-        gaps?: string[];
+        gaps?: JudgeGap[];
+        suggestions?: string[];
         mastery?: Mastery;
         nextLayer?: Layer | "done";
         rejudgeUsed?: number;
@@ -255,6 +262,7 @@ export default function TodayPage() {
           verdict: data.verdict,
           feedback: data.feedback ?? "",
           gaps: data.gaps ?? [],
+          suggestions: data.suggestions ?? [],
         });
         setMastery(data.mastery ?? null);
         setAnswer("");
@@ -336,7 +344,8 @@ export default function TodayPage() {
         ok: boolean;
         verdict?: "pass" | "partial" | "fail";
         feedback?: string;
-        gaps?: string[];
+        gaps?: JudgeGap[];
+        suggestions?: string[];
         error?: string;
       };
 
@@ -351,6 +360,7 @@ export default function TodayPage() {
           verdict: data.verdict as Verdict["verdict"],
           feedback: data.feedback ?? "",
           gaps: data.gaps ?? [],
+          suggestions: data.suggestions ?? [],
         },
       }));
       await loadPlan();
@@ -548,12 +558,45 @@ export default function TodayPage() {
             <div className={`mt-3 rounded-lg border p-3 ${verdictStyle[verdict.verdict]}`}>
               <p className="text-sm font-semibold">{verdictLabel[verdict.verdict]}</p>
               <p className="mt-1 text-sm leading-6">{verdict.feedback}</p>
-              {verdict.gaps.length > 0 && (
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5">
-                  {verdict.gaps.map((gap) => (
-                    <li key={gap}>{gap}</li>
-                  ))}
-                </ul>
+
+              {standard && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs font-medium">达标情况（对照本层标准）</p>
+                  <ul className="space-y-1">
+                    {standard[layer].map((item, index) => {
+                      const gap = verdict.gaps.find((entry) => entry.standard_index === index + 1);
+                      if (gap) {
+                        return (
+                          <li
+                            key={index}
+                            className="rounded bg-white/70 px-2 py-1 text-xs font-medium text-rose-700"
+                          >
+                            未达标：{item}——{gap.detail}
+                          </li>
+                        );
+                      }
+                      return (
+                        <li
+                          key={index}
+                          className="rounded bg-white/40 px-2 py-1 text-xs text-emerald-700"
+                        >
+                          已达标：{item}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {verdict.suggestions.length > 0 && (
+                <div className="mt-2 rounded bg-white/40 px-2 py-1">
+                  <p className="text-xs font-medium text-slate-700">督学建议（不影响判定）</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-4 text-xs leading-5 text-slate-700">
+                    {verdict.suggestions.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}

@@ -45,7 +45,8 @@ function makeJudgeCaller(verdict: "pass" | "fail") {
     JSON.stringify({
       verdict,
       feedback: verdict === "pass" ? "回答完整" : "缺少关键步骤",
-      gaps: verdict === "pass" ? [] : ["没有说明为什么"],
+      gaps: verdict === "pass" ? [] : [{ standard_index: 1, detail: "没有说明为什么" }],
+      suggestions: [],
     });
 }
 
@@ -57,7 +58,7 @@ describe("三层判定流程", () => {
     for (const layer of ["explain", "practice", "apply"] as const) {
       const verdict = await judgeAnswer(
         point!,
-        { layer, question: "题目", answer: "完整回答", standardText: "标准" },
+        { layer, question: "题目", answer: "完整回答", standardItems: ["标准一", "标准二", "标准三"] },
         makeJudgeCaller("pass"),
       );
       expect(verdict.verdict).toBe("pass");
@@ -73,7 +74,7 @@ describe("三层判定流程", () => {
     const point = getPointContext("kp-1");
     const verdict = await judgeAnswer(
       point!,
-      { layer: "practice", question: "题目", answer: "不完整", standardText: "标准" },
+      { layer: "practice", question: "题目", answer: "不完整", standardItems: ["标准一", "标准二", "标准三"] },
       makeJudgeCaller("fail"),
     );
     recordLayerResult({ knowledgePointId: "kp-1", layer: "practice", result: verdict.verdict });
@@ -94,7 +95,7 @@ describe("三层判定流程", () => {
         layer: "practice",
         question: "题目",
         answer: "补充后的回答",
-        standardText: "标准",
+        standardItems: ["标准一", "标准二", "标准三"],
         rejudgeNote: "刚才漏写了关键步骤",
       },
       makeJudgeCaller("pass"),
@@ -116,6 +117,6 @@ describe("三层判定流程", () => {
 
 describe("判定结果解析", () => {
   it("模型给出不存在的结论时被拒绝，不会写入状态", () => {
-    expect(() => validateVerdict({ verdict: "不错" })).toThrow();
+    expect(() => validateVerdict({ verdict: "不错" }, 3)).toThrow();
   });
 });

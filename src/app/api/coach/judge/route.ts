@@ -136,11 +136,12 @@ export async function POST(request: Request) {
       layer,
       question,
       answer,
-      standardText,
+      standardItems: standard[layer],
       rejudgeNote: isRejudge ? rejudgeNote : undefined,
       referenceNotes: getReferenceNotes(point),
     });
   } catch (error) {
+    console.error("判定失败：", error instanceof Error ? error.message : String(error));
     if (error instanceof ModelConfigError) {
       return NextResponse.json(
         { ok: false, error: `模型未配置：${error.message}` },
@@ -175,6 +176,7 @@ export async function POST(request: Request) {
       (previousResult === "fail" || previousResult === "partial"),
     feedback: verdict.feedback,
     gaps: verdict.gaps,
+    suggestions: verdict.suggestions,
     standard,
     standardText,
     mastery,
