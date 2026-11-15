@@ -7,6 +7,7 @@ import {
   consumeRejudge,
   getMastery,
   recordLayerResult,
+  recordRejudgeResult,
 } from "./repository";
 
 let workDir = "";
@@ -91,6 +92,29 @@ describe("重判", () => {
 
     expect(consumeRejudge("kp-1")).toBe(true);
     expect(consumeRejudge("kp-1")).toBe(false);
+    expect(getMastery("kp-1")?.rejudge_used).toBe(1);
+  });
+
+  it("重判结果写入时在同一事务里扣除次数", () => {
+    recordLayerResult({ knowledgePointId: "kp-1", layer: "practice", result: "fail" });
+
+    const record = recordRejudgeResult({ knowledgePointId: "kp-1", layer: "practice", result: "pass" });
+
+    expect(record).toBeTruthy();
+    expect(record?.rejudge_used).toBe(1);
+    expect(record?.practice_result).toBe("pass");
+    expect(record?.mastery_status).toBe("learning");
+  });
+
+  it("次数已用完时重判结果不写入", () => {
+    recordLayerResult({ knowledgePointId: "kp-1", layer: "practice", result: "fail" });
+
+    const first = recordRejudgeResult({ knowledgePointId: "kp-1", layer: "practice", result: "pass" });
+    const second = recordRejudgeResult({ knowledgePointId: "kp-1", layer: "practice", result: "pass" });
+
+    expect(first).toBeTruthy();
+    expect(second).toBeUndefined();
+    expect(getMastery("kp-1")?.practice_result).toBe("pass");
     expect(getMastery("kp-1")?.rejudge_used).toBe(1);
   });
 });

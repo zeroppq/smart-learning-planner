@@ -64,21 +64,17 @@ export function getOrCreateMastery(knowledgePointId: string): MasteryRecord {
   return getMastery(knowledgePointId) as MasteryRecord;
 }
 
-export function recordLayerResult(input: {
-  knowledgePointId: string;
-  layer: MasteryLayer;
-  result: Exclude<LayerResult, "not_attempted">;
-}): MasteryRecord {
-  const record = getOrCreateMastery(input.knowledgePointId);
-  const db = getDatabase();
-  const now = nowIso();
-
+function computeNextState(
+  record: MasteryRecord,
+  layer: MasteryLayer,
+  result: Exclude<LayerResult, "not_attempted">,
+) {
   const next = {
     explain_result: record.explain_result,
     practice_result: record.practice_result,
     apply_result: record.apply_result,
   };
-  next[LAYER_COLUMN[input.layer] as "explain_result"] = input.result;
+  next[LAYER_COLUMN[layer] as "explain_result"] = result;
 
   const results = [next.explain_result, next.practice_result, next.apply_result];
   let masteryStatus: MasteryStatus;
@@ -95,6 +91,24 @@ export function recordLayerResult(input: {
   const nextReviewCount = masteryStatus === "passed" ? Number(record.review_count) + 1 : Number(record.review_count);
   const interval = REVIEW_INTERVALS[Math.min(Math.max(nextReviewCount - 1, 0), REVIEW_INTERVALS.length - 1)];
   const reviewDueAt = masteryStatus === "passed" ? addDays(todayString(), interval) : record.review_due_at;
+
+  return { next, masteryStatus, weakPoint, nextReviewCount, reviewDueAt };
+}
+
+export function recordLayerResult(input: {
+  knowledgePointId: string;
+  layer: MasteryLayer;
+  result: Exclude<LayerResult, "not_attempted">;
+}): MasteryRecord {
+  const record = getOrCreateMastery(input.knowledgePointId);
+  const db = getDatabase();
+  const now = nowIso();
+
+  const { next, masteryStatus, weakPoint, nextReviewCount, reviewDueAt } = computeNextState(
+    record,
+    input.layer,
+    input.result,
+  );
 
   db.prepare(
     `UPDATE mastery_record SET
@@ -116,6 +130,63 @@ export function recordLayerResult(input: {
   );
 
   return getMastery(input.knowledgePointId) as MasteryRecord;
+}
+
+export function recordRejudgeResult(input: {
+  knowledgePointId: string;
+  layer: MasteryLayer;
+  result: Exclude<LayerResult, "not_attempted">;
+}): MasteryRecord | undefined {
+  const record = getOrCreateMastery(input.knowledgePointId);
+  const db = getDatabase();
+  const now = nowIso();
+
+  const { next, masteryStatus, weakPoint, nextReviewCount, reviewDueAt } = computeNextState(
+    record,
+    input.layer,
+    input.result,
+  );
+
+  db.exec("BEGIN");
+  try {
+    const consumed = db
+      .prepare(
+        `UPDATE mastery_record SET rejudge_used = 1, updated_at = ?
+           WHERE knowledge_point_id = ? AND rejudge_used = 0`,
+      )
+      .run(now, input.knowledgePointId);
+
+    if (Number(consumed.changes) === 0) {
+      db.exec("ROLLBACK");
+      return undefined;
+    }
+
+    db.prepare(
+      `UPDATE mastery_record SET
+         explain_result = ?, practice_result = ?, apply_result = ?,
+         mastery_status = ?, weak_point_flag = ?, review_count = ?, review_due_at = ?,
+         last_studied_at = ?, updated_at = ?
+       WHERE knowledge_point_id = ?`,
+    ).run(
+      next.explain_result,
+      next.practice_result,
+      next.apply_result,
+      masteryStatus,
+      weakPoint,
+      nextReviewCount,
+      reviewDueAt,
+      now,
+      now,
+      input.knowledgePointId,
+    );
+
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+
+  return getMastery(input.knowledgePointId);
 }
 
 export function consumeRejudge(knowledgePointId: string): boolean {

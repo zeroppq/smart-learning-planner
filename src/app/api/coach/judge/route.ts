@@ -7,11 +7,11 @@ import {
   type JudgeVerdict,
 } from "@/lib/agents/coach/service";
 import {
-  consumeRejudge,
   getMastery,
   getPointContext,
   getReferenceNotes,
   recordLayerResult,
+  recordRejudgeResult,
   recordStudySession,
 } from "@/lib/agents/coach/repository";
 
@@ -67,15 +67,16 @@ export async function POST(request: Request) {
   const standardText = formatStandardForPrompt(standard);
 
   if (isRejudge) {
-    if (!consumeRejudge(knowledgePointId)) {
-      return NextResponse.json(
-        { ok: false, error: "该知识点的重判机会已用完。" },
-        { status: 400 },
-      );
-    }
     if (rejudgeNote.length < 2) {
       return NextResponse.json(
         { ok: false, error: "申请重判时需要补充说明，方便督学重新判断。" },
+        { status: 400 },
+      );
+    }
+    const currentMastery = getMastery(knowledgePointId);
+    if (currentMastery && currentMastery.rejudge_used > 0) {
+      return NextResponse.json(
+        { ok: false, error: "该知识点的重判机会已用完。" },
         { status: 400 },
       );
     }
@@ -157,11 +158,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const mastery = recordLayerResult({
-    knowledgePointId,
-    layer,
-    result: verdict.verdict,
-  });
+  const mastery = isRejudge
+    ? recordRejudgeResult({ knowledgePointId, layer, result: verdict.verdict })
+    : recordLayerResult({ knowledgePointId, layer, result: verdict.verdict });
+
+  if (!mastery) {
+    return NextResponse.json(
+      { ok: false, error: "该知识点的重判机会已用完。" },
+      { status: 400 },
+    );
+  }
   recordStudySession({ knowledgePointId, stage: layer });
 
   const next = nextLayerAfter(layer, verdict.verdict);

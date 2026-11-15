@@ -99,7 +99,10 @@ export default function TodayPage() {
   const [answer, setAnswer] = useState("");
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [mastery, setMastery] = useState<Mastery | null>(null);
+  const [lastSubmittedAnswer, setLastSubmittedAnswer] = useState("");
   const [rejudgeNote, setRejudgeNote] = useState("");
+  const [rejudgeBusy, setRejudgeBusy] = useState(false);
+  const [rejudgeNotice, setRejudgeNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -146,7 +149,9 @@ export default function TodayPage() {
     setLecture("");
     setStandard(null);
     setVerdict(null);
+    setLastSubmittedAnswer("");
     setRejudgeNote("");
+    setRejudgeNotice(null);
 
     try {
       const response = await fetch("/api/coach/start", {
@@ -214,7 +219,7 @@ export default function TodayPage() {
     setVerdict(null);
   }
 
-  async function submitAnswer(options: { rejudge?: boolean } = {}) {
+  async function submitAnswer() {
     if (!activePointId) {
       return;
     }
@@ -235,8 +240,6 @@ export default function TodayPage() {
           layer,
           question,
           answer,
-          rejudge: options.rejudge === true,
-          rejudgeNote: options.rejudge === true ? rejudgeNote : undefined,
         }),
       });
       const data = (await response.json()) as {
@@ -265,8 +268,10 @@ export default function TodayPage() {
           suggestions: data.suggestions ?? [],
         });
         setMastery(data.mastery ?? null);
+        setLastSubmittedAnswer(answer);
         setAnswer("");
         setRejudgeNote("");
+        setRejudgeNotice(null);
 
         if (data.nextLayer === "done") {
           setNotice(`${data.retryPass ? "补考通过。" : ""}三层全部通过，这个知识点已标记为已通过。`);
@@ -282,6 +287,78 @@ export default function TodayPage() {
       setNotice("网络异常，判定没有完成。");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function submitRejudge() {
+    if (!activePointId) {
+      return;
+    }
+    if (rejudgeNote.trim().length < 2) {
+      setRejudgeNotice("先写一两句补充说明，再申请重判。");
+      return;
+    }
+    if (lastSubmittedAnswer.trim().length === 0) {
+      setRejudgeNotice("还没有可重判的回答，请先提交一次回答。");
+      return;
+    }
+
+    setRejudgeBusy(true);
+    setRejudgeNotice("督学正在基于你上次的回答重新判定…");
+
+    try {
+      const response = await fetch("/api/coach/judge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          knowledgePointId: activePointId,
+          layer,
+          question,
+          answer: lastSubmittedAnswer,
+          rejudge: true,
+          rejudgeNote,
+        }),
+      });
+      const data = (await response.json()) as {
+        ok: boolean;
+        verdict?: "pass" | "partial" | "fail";
+        retryPass?: boolean;
+        feedback?: string;
+        gaps?: JudgeGap[];
+        suggestions?: string[];
+        mastery?: Mastery;
+        nextLayer?: Layer | "done";
+        error?: string;
+      };
+
+      if (!data.ok) {
+        setRejudgeNotice(data.error ?? "重判未完成，请重试。");
+        return;
+      }
+
+      if (data.verdict) {
+        setVerdict({
+          verdict: data.verdict,
+          feedback: data.feedback ?? "",
+          gaps: data.gaps ?? [],
+          suggestions: data.suggestions ?? [],
+        });
+        setMastery(data.mastery ?? null);
+        setRejudgeNote("");
+        setRejudgeNotice(null);
+
+        if (data.nextLayer === "done") {
+          setNotice("三层全部通过，这个知识点已标记为已通过。");
+          await loadPlan();
+        } else if (data.nextLayer && data.verdict === "pass") {
+          await requestNextQuestion(data.nextLayer);
+          setNotice("已进入" + layerLabel[data.nextLayer] + "。");
+        }
+      }
+    } catch {
+      setRejudgeNotice("网络异常，重判没有完成。");
+    } finally {
+      setRejudgeBusy(false);
     }
   }
 
@@ -603,7 +680,9 @@ export default function TodayPage() {
 
           {verdict && verdict.verdict !== "pass" && mastery?.rejudge_used === 0 && (
             <div className="mt-3 rounded-lg border border-slate-200 p-3">
-              <p className="text-xs font-medium text-slate-600">申请重判（只能一次）</p>
+              <p className="text-xs font-medium text-slate-600">
+                申请重判（只能一次，基于你上次的回答与下面的补充说明重新判定）
+              </p>
               <textarea
                 value={rejudgeNote}
                 onChange={(event) => setRejudgeNote(event.target.value)}
@@ -611,13 +690,16 @@ export default function TodayPage() {
                 placeholder="补充说明你这次想澄清的点"
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
               />
+              {rejudgeNotice && (
+                <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">{rejudgeNotice}</p>
+              )}
               <button
                 type="button"
-                onClick={() => void submitAnswer({ rejudge: true })}
-                disabled={busy || rejudgeNote.trim().length < 2}
+                onClick={() => void submitRejudge()}
+                disabled={rejudgeBusy || rejudgeNote.trim().length < 2}
                 className="mt-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 disabled:text-slate-400"
               >
-                申请重判
+                {rejudgeBusy ? "重判中…" : "申请重判"}
               </button>
             </div>
           )}
