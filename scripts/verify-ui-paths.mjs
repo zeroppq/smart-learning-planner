@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -28,6 +28,13 @@ const MANUAL_STEPS = {
     "3. 预期：出现「申请重判」区块；不填补充说明时按钮是灰的（点了也不会发请求、不消耗次数）",
     "4. 在补充说明框写一两句话，点「申请重判」；预期：按钮变为「重判中…」，提示就地显示在区块内",
     "5. 预期：重判完成后「申请重判」区块消失（次数已扣一次），页面显示新的判定结果",
+  ],
+  "rearrange-flow": [
+    "手工清单（脚本不可用时按此验证）：",
+    "1. 浏览器打开 http://127.0.0.1:3000/plan （学习计划页），确认已有计划（版本 v1、每天 2 项、每项 20 分钟）",
+    "2. 把「每天可用」时长从 40 改为 50，点「开始规划」",
+    "3. 预期：出现「按新时长重排（需要你确认）」卡片，展示调整前（11 天、每天 2 项、每项 20 分钟）与调整后（8 天、每天 3 项、每项 17 分钟）的对比；旧计划全程可见",
+    "4. 点「确认重排」；预期：计划版本升到 v2，每日任务按 50 分钟重排（每天 3 项、每项 17 分钟），对比卡消失",
   ],
 };
 
@@ -351,6 +358,47 @@ const paths = [
       }
     },
   },
+  {
+    name: "rearrange-flow",
+    run: async (page) => {
+      await page.open("/plan", ["计划 v"]);
+      await sleep(500);
+      const filled = await page.fill("input[type=number]", "50");
+      if (!filled) {
+        throw new Error("没有找到每日时长输入框");
+      }
+      await sleep(500);
+      const planned = await page.clickByText("button", "开始规划");
+      if (!planned) {
+        throw new Error("没有找到「开始规划」按钮");
+      }
+      const previewShown = await page.waitForText("按新时长重排", 60000);
+      if (!previewShown) {
+        throw new Error("改时长并点开始规划后 60 秒内没有出现重排对比卡");
+      }
+      const beforeShown = await page.waitForText("调整前", 5000);
+      const afterShown = await page.waitForText("调整后", 5000);
+      if (!beforeShown || !afterShown) {
+        throw new Error("重排对比卡里没有出现调整前后的对比内容");
+      }
+      const confirmed = await page.clickByText("button", "确认重排");
+      if (!confirmed) {
+        throw new Error("没有找到「确认重排」按钮");
+      }
+      const versionUp = await page.waitForText("计划 v2", 60000);
+      if (!versionUp) {
+        throw new Error("确认重排后 60 秒内计划版本没有升到 v2");
+      }
+      const newMinutes = await page.waitForText("17 分钟", 10000);
+      if (!newMinutes) {
+        throw new Error("重排后每日任务没有出现 50 分钟档的每项 17 分钟");
+      }
+      const cardGone = await page.waitForGone("按新时长重排", 10000);
+      if (!cardGone) {
+        throw new Error("确认重排后对比卡没有消失");
+      }
+    },
+  },
 ];
 
 const reachable = await checkBaseReachable();
@@ -361,6 +409,35 @@ if (!reachable) {
   }
   process.exit(2);
 }
+
+function resetDemo() {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const result = spawnSync(
+      process.execPath,
+      ["--experimental-strip-types", "scripts/reset-demo.mjs", "demo"],
+      { encoding: "utf8" },
+    );
+    if (result.status === 0) {
+      return { ok: true };
+    }
+  }
+  return {
+    ok: false,
+    reason:
+      "reset-demo demo 连续 2 次失败（模型可能暂不可用）。可先手动执行 node --experimental-strip-types scripts/reset-demo.mjs demo，成功后再运行本脚本。",
+  };
+}
+
+console.log("RESET | 重置为演示基线数据（保证每条路径从同一起点开始，会清空学习记录）…");
+const reset = resetDemo();
+if (!reset.ok) {
+  console.log("ENV_FAIL | " + reset.reason);
+  for (const path of paths) {
+    printManual(path.name);
+  }
+  process.exit(2);
+}
+console.log("RESET | 完成");
 
 const browser = startBrowser();
 if (!browser.ok) {

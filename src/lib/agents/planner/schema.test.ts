@@ -134,7 +134,7 @@ describe("每日任务生成", () => {
     }
   });
 
-  it("知识点少于 14 个时，每天只排一个任务", () => {
+  it("40 分钟下 12 个知识点每天排两项、共 6 天", () => {
     const tasks = buildDailyTasks({
       route: routeOf(12),
       startDate: "2026-11-15",
@@ -144,8 +144,73 @@ describe("每日任务生成", () => {
     const perDay = new Map<string, number>();
     tasks.forEach((task) => perDay.set(task.task_date, (perDay.get(task.task_date) ?? 0) + 1));
 
-    expect(Math.max(...perDay.values())).toBe(1);
-    expect(perDay.size).toBe(12);
+    expect(Math.max(...perDay.values())).toBe(2);
+    expect(perDay.size).toBe(6);
+    expect(tasks.every((task) => task.estimated_minutes === 20)).toBe(true);
+  });
+
+  it("22 个知识点按 40 分钟排：每天 2 项、共 11 天、每项 20 分钟", () => {
+    const tasks = buildDailyTasks({
+      route: routeOf(22),
+      startDate: "2026-11-15",
+      dailyMinutes: 40,
+    });
+
+    const perDay = new Map<string, number>();
+    tasks.forEach((task) => perDay.set(task.task_date, (perDay.get(task.task_date) ?? 0) + 1));
+
+    expect(Math.max(...perDay.values())).toBe(2);
+    expect(perDay.size).toBe(11);
+    expect(tasks.every((task) => task.estimated_minutes === 20)).toBe(true);
+  });
+
+  it("22 个知识点按 50 分钟排：每天 3 项、共 8 天，与 40 分钟档可区分", () => {
+    const tasks = buildDailyTasks({
+      route: routeOf(22),
+      startDate: "2026-11-15",
+      dailyMinutes: 50,
+    });
+
+    const perDay = new Map<string, number>();
+    const minutes = new Set<number>();
+    tasks.forEach((task) => {
+      perDay.set(task.task_date, (perDay.get(task.task_date) ?? 0) + 1);
+      minutes.add(task.estimated_minutes);
+    });
+
+    expect(Math.max(...perDay.values())).toBe(3);
+    expect(perDay.size).toBe(8);
+    expect(Array.from(minutes).sort((a, b) => a - b)).toEqual([17, 50]);
+  });
+
+  it("22 个知识点按 60 分钟排：每天 3 项、共 8 天", () => {
+    const tasks = buildDailyTasks({
+      route: routeOf(22),
+      startDate: "2026-11-15",
+      dailyMinutes: 60,
+    });
+
+    const perDay = new Map<string, number>();
+    const minutes = new Set<number>();
+    tasks.forEach((task) => {
+      perDay.set(task.task_date, (perDay.get(task.task_date) ?? 0) + 1);
+      minutes.add(task.estimated_minutes);
+    });
+
+    expect(Math.max(...perDay.values())).toBe(3);
+    expect(perDay.size).toBe(8);
+    expect(Array.from(minutes).sort((a, b) => a - b)).toEqual([20, 60]);
+  });
+
+  it("时长很短时被 14 天周期兜底，每项分钟数不低于 15", () => {
+    const tasks = buildDailyTasks({
+      route: routeOf(30),
+      startDate: "2026-11-15",
+      dailyMinutes: 10,
+    });
+
+    expect(tasks.every((task) => task.estimated_minutes >= 15)).toBe(true);
+    expect(tasks.every((task) => task.task_date <= "2026-11-28")).toBe(true);
   });
 });
 

@@ -85,6 +85,16 @@ export function createOrReplaceActiveGoal(input: {
   return getActiveGoal() as GoalRecord;
 }
 
+export function updateActiveGoalDailyMinutes(dailyMinutes: number): GoalRecord | undefined {
+  const db = getDatabase();
+  const now = nowIso();
+  db.prepare("UPDATE learning_goal SET daily_minutes = ?, updated_at = ? WHERE goal_status = 'active'").run(
+    dailyMinutes,
+    now,
+  );
+  return getActiveGoal();
+}
+
 export function listKnowledgePointOptions(limit = MAX_PLAN_POINTS): KnowledgePointOption[] {
   const db = getDatabase();
   const rows = db

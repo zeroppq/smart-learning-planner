@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { generateClarifyingQuestions } from "@/lib/agents/planner/service";
 import {
   createOrReplaceActiveGoal,
+  getActiveGoal,
   listKnowledgePointOptions,
+  updateActiveGoalDailyMinutes,
 } from "@/lib/plans/repository";
 
 export async function POST(request: Request) {
@@ -30,7 +32,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const goal = createOrReplaceActiveGoal({ goalText, dailyMinutes: Math.round(dailyMinutes) });
+  const existing = getActiveGoal();
+  const goal =
+    existing && existing.goal_text.trim() === goalText
+      ? (updateActiveGoalDailyMinutes(Math.round(dailyMinutes)) ?? existing)
+      : createOrReplaceActiveGoal({ goalText, dailyMinutes: Math.round(dailyMinutes) });
   const points = listKnowledgePointOptions();
 
   const questions = await generateClarifyingQuestions({

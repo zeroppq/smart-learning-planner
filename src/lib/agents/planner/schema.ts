@@ -137,13 +137,16 @@ export function buildDailyTasks(input: {
   dailyMinutes: number;
 }): PlanDailyTask[] {
   const { route, startDate, dailyMinutes } = input;
-  const perDay = Math.min(MAX_POINTS_PER_DAY, Math.max(1, Math.ceil(route.length / PLAN_PERIOD_DAYS)));
+  const perDay = Math.min(
+    MAX_POINTS_PER_DAY,
+    Math.max(Math.ceil(route.length / PLAN_PERIOD_DAYS), Math.floor(dailyMinutes / 15)),
+  );
   const tasks: PlanDailyTask[] = [];
 
   route.forEach((node, index) => {
     const dayOffset = Math.floor(index / perDay);
     const tasksToday = Math.min(perDay, route.length - dayOffset * perDay);
-    const minutes = Math.max(5, Math.round(dailyMinutes / Math.max(1, tasksToday)));
+    const minutes = Math.max(15, Math.round(dailyMinutes / Math.max(1, tasksToday)));
 
     tasks.push({
       task_date: addDays(startDate, Math.min(dayOffset, PLAN_PERIOD_DAYS - 1)),

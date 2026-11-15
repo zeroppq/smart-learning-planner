@@ -58,6 +58,12 @@ export default function PlanPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [showClarify, setShowClarify] = useState(false);
+  const [rearrangePreview, setRearrangePreview] = useState<{
+    dailyMinutes: number;
+    before: { totalDays: number; maxTasksPerDay: number; minutesPerTask: number[] };
+    after: { totalDays: number; maxTasksPerDay: number; minutesPerTask: number[] };
+  } | null>(null);
+  const [rearrangeBusy, setRearrangeBusy] = useState(false);
 
   const loadCurrent = useCallback(async () => {
     const response = await fetch("/api/plans/current");
@@ -113,8 +119,24 @@ export default function PlanPage() {
         return;
       }
 
-      const nextQuestions = data.questions ?? [];
       const nextGoalId = data.goal?.learning_goal_id ?? "";
+      const previousGoalId = view?.goal.learning_goal_id ?? "";
+      const previousMinutes = view?.goal.daily_minutes;
+      const isSameGoal = view !== null && nextGoalId === previousGoalId;
+
+      if (isSameGoal) {
+        setShowClarify(false);
+        setQuestions([]);
+        setActiveGoalId(nextGoalId);
+        if (data.goal?.daily_minutes === previousMinutes) {
+          setNotice("目标没有变化，当前计划保持不变。");
+          return;
+        }
+        await previewRearrange();
+        return;
+      }
+
+      const nextQuestions = data.questions ?? [];
       setActiveGoalId(nextGoalId);
       setQuestions(nextQuestions);
       setAnswers(nextQuestions.map(() => ""));
@@ -130,6 +152,70 @@ export default function PlanPage() {
       setNotice("网络异常，目标没有保存成功。");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function previewRearrange() {
+    setBusy(true);
+    setNotice("正在按新时长计算重排预览…");
+
+    try {
+      const response = await fetch("/api/plans/rearrange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: false }),
+      });
+      const data = (await response.json()) as {
+        ok: boolean;
+        confirm: boolean;
+        dailyMinutes?: number;
+        before?: { totalDays: number; maxTasksPerDay: number; minutesPerTask: number[] };
+        after?: { totalDays: number; maxTasksPerDay: number; minutesPerTask: number[] };
+        error?: string;
+      };
+
+      if (!data.ok || !data.before || !data.after || typeof data.dailyMinutes !== "number") {
+        setNotice(data.error ?? "重排预览失败，请重试。");
+        return;
+      }
+
+      setRearrangePreview({ dailyMinutes: data.dailyMinutes, before: data.before, after: data.after });
+      setNotice("已按新时长算好重排方案，确认后才会写入计划。");
+    } catch {
+      setNotice("网络异常，重排预览没有生成。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmRearrange() {
+    setRearrangeBusy(true);
+
+    try {
+      const response = await fetch("/api/plans/rearrange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      const data = (await response.json()) as {
+        ok: boolean;
+        planVersion?: number;
+        dailyMinutes?: number;
+        error?: string;
+      };
+
+      if (!data.ok) {
+        setNotice(data.error ?? "重排没有保存成功。");
+        return;
+      }
+
+      setRearrangePreview(null);
+      await loadCurrent();
+      setNotice(`已按每天 ${data.dailyMinutes ?? ""} 分钟重排，计划版本升到 v${data.planVersion ?? ""}。`);
+    } catch {
+      setNotice("网络异常，重排没有保存成功。");
+    } finally {
+      setRearrangeBusy(false);
     }
   }
 
@@ -254,6 +340,51 @@ export default function PlanPage() {
         </div>
       )}
 
+      {rearrangePreview && (
+        <div className="rounded-xl border-2 border-slate-900 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-900">按新时长重排（需要你确认）</h2>
+          <p className="mt-2 text-sm text-slate-700">
+            每天可用时长改为 {rearrangePreview.dailyMinutes} 分钟后，每日任务安排变化如下，确认后才会写入计划。
+          </p>
+
+          <div className="mt-3 rounded-lg bg-slate-50 p-3">
+            <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+              <div>
+                <p className="font-medium text-slate-700">调整前</p>
+                <p>共 {rearrangePreview.before.totalDays} 天有任务</p>
+                <p>每天最多 {rearrangePreview.before.maxTasksPerDay} 项</p>
+                <p>每项约 {rearrangePreview.before.minutesPerTask.join(" / ")} 分钟</p>
+              </div>
+              <div>
+                <p className="font-medium text-slate-700">调整后</p>
+                <p>共 {rearrangePreview.after.totalDays} 天有任务</p>
+                <p>每天最多 {rearrangePreview.after.maxTasksPerDay} 项</p>
+                <p>每项约 {rearrangePreview.after.minutesPerTask.join(" / ")} 分钟</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void confirmRearrange()}
+              disabled={rearrangeBusy}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-400"
+            >
+              {rearrangeBusy ? "重排中…" : "确认重排"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRearrangePreview(null)}
+              disabled={rearrangeBusy}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 disabled:text-slate-400"
+            >
+              暂不重排
+            </button>
+          </div>
+        </div>
+      )}
+
       {view && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-200 bg-white p-5">
@@ -311,7 +442,7 @@ export default function PlanPage() {
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <h2 className="text-sm font-semibold text-slate-900">每日任务</h2>
             <p className="mt-1 text-xs text-slate-500">
-              每天 {view.goal.daily_minutes} 分钟 · 共 {taskGroups.length} 天有任务
+              每天 {view.goal.daily_minutes} 分钟 · 共 {taskGroups.length} 天有任务 · 任务安排由知识点数量、学习周期与每日时长共同决定
             </p>
 
             <div className="mt-3 space-y-3">
