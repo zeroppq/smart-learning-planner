@@ -54,6 +54,7 @@ export default function PlanPage() {
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
   const [view, setView] = useState<PlanView | null>(null);
+  const [activeGoalId, setActiveGoalId] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [showClarify, setShowClarify] = useState(false);
@@ -65,6 +66,7 @@ export default function PlanPage() {
       setView(data.plan);
       setGoalText(data.plan.goal.goal_text);
       setDailyMinutes(data.plan.goal.daily_minutes);
+      setActiveGoalId(data.plan.goal.learning_goal_id);
     }
   }, []);
 
@@ -112,6 +114,8 @@ export default function PlanPage() {
       }
 
       const nextQuestions = data.questions ?? [];
+      const nextGoalId = data.goal?.learning_goal_id ?? "";
+      setActiveGoalId(nextGoalId);
       setQuestions(nextQuestions);
       setAnswers(nextQuestions.map(() => ""));
 
@@ -120,7 +124,7 @@ export default function PlanPage() {
         setNotice("规划师想先确认 1-3 个信息，回答后生成计划；也可以直接跳过。");
       } else {
         setShowClarify(false);
-        await requestPlan(data.goal?.learning_goal_id ?? "", []);
+        await requestPlan(nextGoalId, []);
       }
     } catch {
       setNotice("网络异常，目标没有保存成功。");
@@ -130,7 +134,7 @@ export default function PlanPage() {
   }
 
   async function submitClarify() {
-    const goalId = view?.goal.learning_goal_id ?? "";
+    const goalId = activeGoalId || view?.goal.learning_goal_id || "";
     setBusy(true);
     await requestPlan(goalId, answers);
     setBusy(false);
@@ -240,7 +244,7 @@ export default function PlanPage() {
             </button>
             <button
               type="button"
-              onClick={() => void requestPlan(view?.goal.learning_goal_id ?? "", [])}
+              onClick={() => void requestPlan(activeGoalId || view?.goal.learning_goal_id || "", [])}
               disabled={busy}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 disabled:text-slate-400"
             >
