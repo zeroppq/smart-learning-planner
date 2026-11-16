@@ -56,6 +56,7 @@ export async function POST(request: Request) {
         pointTitle: item.pointTitle,
         materialName: item.materialName,
         paragraphIndex: item.paragraphIndex,
+        paragraphText: item.paragraphText,
       })),
     });
   } catch (error) {

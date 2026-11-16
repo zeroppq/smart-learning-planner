@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +7,12 @@ const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
 const PORT = 9333;
 const BASE = process.env.APP_BASE_URL ?? "http://127.0.0.1:3000";
 const pages = ["/", "/plan", "/knowledge", "/progress"];
+const widths = (process.env.CHECK_WIDTHS ?? "390")
+  .split(",")
+  .map((value) => Number(value.trim()))
+  .filter((value) => Number.isFinite(value) && value > 0);
+const captureDir = process.env.CAPTURE_DIR ?? "";
+const pageSlug = { "/": "today", "/plan": "plan", "/knowledge": "knowledge", "/progress": "progress" };
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -83,27 +89,36 @@ function send(method, params = {}) {
 }
 
 await send("Page.enable");
-await send("Emulation.setDeviceMetricsOverride", {
-  width: 390,
-  height: 844,
-  deviceScaleFactor: 2,
-  mobile: true,
-});
 
 const results = [];
 
-for (const path of pages) {
-  await send("Page.navigate", { url: `${BASE}${path}` });
-  await sleep(6000);
-  const evaluated = await send("Runtime.evaluate", {
-    expression:
-      "JSON.stringify({scrollWidth:document.documentElement.scrollWidth, bodyWidth:document.body.scrollWidth, innerWidth:window.innerWidth})",
-    returnByValue: true,
+for (const width of widths) {
+  await send("Emulation.setDeviceMetricsOverride", {
+    width,
+    height: width < 800 ? 844 : 900,
+    deviceScaleFactor: width < 800 ? 2 : 1,
+    mobile: width < 800,
   });
-  const value = JSON.parse(evaluated.result.result.value);
-  const ok = value.scrollWidth <= value.innerWidth + 1 && value.bodyWidth <= value.innerWidth + 1;
-  results.push({ path, ...value, ok });
-  console.log(ok ? "PASS" : "FAIL", path, JSON.stringify(value));
+
+  for (const path of pages) {
+    await send("Page.navigate", { url: `${BASE}${path}` });
+    await sleep(6000);
+    const evaluated = await send("Runtime.evaluate", {
+      expression:
+        "JSON.stringify({scrollWidth:document.documentElement.scrollWidth, bodyWidth:document.body.scrollWidth, innerWidth:window.innerWidth})",
+      returnByValue: true,
+    });
+    const value = JSON.parse(evaluated.result.result.value);
+    const ok = value.scrollWidth <= value.innerWidth + 1 && value.bodyWidth <= value.innerWidth + 1;
+    results.push({ width, path, ...value, ok });
+    console.log(ok ? "PASS" : "FAIL", width, path, JSON.stringify(value));
+
+    if (captureDir) {
+      const shot = await send("Page.captureScreenshot", { format: "png" });
+      const name = `2026-11-15-v1-1-group-6-${width}-${pageSlug[path] ?? "page"}.png`;
+      writeFileSync(join(captureDir, name), Buffer.from(shot.result.data, "base64"));
+    }
+  }
 }
 
 socket.close();

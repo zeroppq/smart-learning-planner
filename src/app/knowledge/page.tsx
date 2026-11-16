@@ -18,11 +18,13 @@ interface KnowledgePoint {
   chapter_name: string;
   paragraph_index: number;
   knowledge_point_order: number;
+  summary: string;
+  material_name: string;
 }
 
 interface KnowledgePointDetail extends KnowledgePoint {
   paragraph_text: string;
-  material_name: string;
+  source_material_id: string;
 }
 
 const statusLabel: Record<string, string> = {
@@ -204,47 +206,57 @@ export default function KnowledgePage() {
             </p>
           ) : (
             <ul className="mt-3 space-y-2">
-              {points.map((point) => (
-                <li key={point.knowledge_point_id}>
-                  <button
-                    type="button"
-                    onClick={() => void openPoint(point)}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-left transition hover:bg-slate-50"
+              {points.map((point) => {
+                const expanded = detail?.knowledge_point_id === point.knowledge_point_id;
+                return (
+                  <li
+                    key={point.knowledge_point_id}
+                    data-knowledge-card="true"
+                    className={`overflow-hidden rounded-lg border transition ${
+                      expanded ? "border-slate-900 bg-white" : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
                   >
-                    <span className="text-sm text-slate-900">
-                      {point.knowledge_point_order}. {point.point_title}
-                    </span>
-                    <span className="ml-2 text-xs text-slate-400">
-                      {point.chapter_name ? `${point.chapter_name} · ` : ""}第 {point.paragraph_index} 段
-                    </span>
-                  </button>
-                </li>
-              ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        expanded ? setDetail(null) : void openPoint(point)
+                      }
+                      className="w-full px-3 py-3 text-left"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="min-w-0 flex-1 break-words text-sm font-medium text-slate-900">
+                          {point.knowledge_point_order}. {point.point_title}
+                        </span>
+                        <span className="shrink-0 text-xs text-slate-500">
+                          {expanded ? "收起" : "展开"}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-slate-600">
+                        {point.summary}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {point.chapter_name ? `${point.chapter_name} · ` : ""}来源 {point.material_name} · 第{" "}
+                        {point.paragraph_index} 段
+                      </p>
+                    </button>
+                    {expanded && detail && (
+                      <div className="border-t border-slate-200 bg-slate-50 px-3 py-3">
+                        <p className="text-xs font-medium text-slate-600">
+                          原文出处：{detail.material_name} · 第 {detail.paragraph_index} 段
+                        </p>
+                        <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-700">
+                          {detail.paragraph_text}
+                        </pre>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
       )}
 
-      {detail && (
-        <div className="rounded-xl border border-slate-900 bg-white p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900">原文出处</h2>
-            <button
-              type="button"
-              onClick={() => setDetail(null)}
-              className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
-            >
-              关闭
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            来源：{detail.material_name} · 第 {detail.paragraph_index} 段
-          </p>
-          <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
-            {detail.paragraph_text}
-          </pre>
-        </div>
-      )}
     </section>
   );
 }

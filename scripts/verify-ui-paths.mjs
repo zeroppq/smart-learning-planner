@@ -36,6 +36,20 @@ const MANUAL_STEPS = {
     "3. 预期：出现「按新时长重排（需要你确认）」卡片，展示调整前（11 天、每天 2 项、每项 20 分钟）与调整后（8 天、每天 3 项、每项 17 分钟）的对比；旧计划全程可见",
     "4. 点「确认重排」；预期：计划版本升到 v2，每日任务按 50 分钟重排（每天 3 项、每项 17 分钟），对比卡消失",
   ],
+  "citation-badge": [
+    "手工清单（脚本不可用时按此验证）：",
+    "1. 浏览器打开 http://127.0.0.1:3000/ （今日学习页），点击今日任务第一条的「开始学习」",
+    "2. 等「督学讲解」出现；预期：讲解正文里的来源引用显示为上标角标 [1]，不再是【文档名 第N段】长串文字",
+    "3. 点击角标；预期：讲解下方展开「出处：文档名 · 第 N 段」卡片，并显示对应段落原文",
+    "4. 点「收起」；预期：出处卡片收起，正文保持连贯",
+  ],
+  "knowledge-card-expand": [
+    "手工清单（脚本不可用时按此验证）：",
+    "1. 浏览器打开 http://127.0.0.1:3000/knowledge （知识库页）",
+    "2. 在「资料列表」点击预置课程《大学计算机基础_课堂讲义.md》",
+    "3. 预期：知识点以卡片展示，每张卡片有标题、摘要与来源段落序号",
+    "4. 点击任意卡片；预期：卡片内展开「原文出处：文档名 · 第 N 段」与段落原文，再次点击可收起",
+  ],
 };
 
 function sleep(ms) {
@@ -396,6 +410,110 @@ const paths = [
       const cardGone = await page.waitForGone("按新时长重排", 10000);
       if (!cardGone) {
         throw new Error("确认重排后对比卡没有消失");
+      }
+    },
+  },
+  {
+    name: "citation-badge",
+    run: async (page) => {
+      await page.open("/");
+      const started = await page.clickByText("button", "开始学习");
+      if (!started) {
+        throw new Error("没有找到今日任务的「开始学习」按钮");
+      }
+      const lectureReady = await page.waitForText("督学讲解", 60000);
+      if (!lectureReady) {
+        throw new Error("点击开始学习后 60 秒内没有出现督学讲解");
+      }
+      let badgeCount = 0;
+      for (let attempt = 0; attempt < 10 && badgeCount === 0; attempt += 1) {
+        badgeCount = await page.evaluate(
+          `document.querySelectorAll("button[data-citation]").length`,
+        );
+        if (!badgeCount) {
+          await sleep(500);
+        }
+      }
+      if (!badgeCount) {
+        throw new Error("讲解正文中没有出现来源角标（模型未按【文档名 第N段】标注引用）");
+      }
+      const clicked = await page.evaluate(
+        `(() => { const el = document.querySelector("button[data-citation]"); if (!el) return false; el.click(); return true; })()`,
+      );
+      if (!clicked) {
+        throw new Error("来源角标无法点击");
+      }
+      const cardText = await page.evaluate(
+        `(() => { const el = document.querySelector("[data-citation-card]"); return el ? el.innerText : ""; })()`,
+      );
+      if (!cardText || !cardText.includes("出处") || !/第\s*\d+\s*段/.test(cardText)) {
+        throw new Error("点击角标后没有出现含文档名与段落序号的出处卡片");
+      }
+      const hasParagraph = await page.evaluate(
+        `Boolean(document.querySelector("[data-citation-paragraph]"))`,
+      );
+      if (!hasParagraph) {
+        throw new Error("出处卡片没有展示可定位的段落原文");
+      }
+      const closed = await page.clickByText("button", "收起");
+      if (!closed) {
+        throw new Error("出处卡片没有「收起」按钮");
+      }
+      const cardGone = await page.waitForGone("出处：", 5000);
+      if (!cardGone) {
+        throw new Error("点击收起后出处卡片没有关闭");
+      }
+    },
+  },
+  {
+    name: "knowledge-card-expand",
+    run: async (page) => {
+      await page.open("/knowledge", ["资料列表"]);
+      const materialClicked = await page.clickByText("button", "大学计算机基础");
+      if (!materialClicked) {
+        throw new Error("资料列表里没有找到预置课程《大学计算机基础_课堂讲义.md》");
+      }
+      let cardCount = 0;
+      for (let attempt = 0; attempt < 30 && cardCount === 0; attempt += 1) {
+        cardCount = await page.evaluate(
+          `document.querySelectorAll("[data-knowledge-card]").length`,
+        );
+        if (!cardCount) {
+          await sleep(500);
+        }
+      }
+      if (cardCount === 0) {
+        throw new Error("打开资料后知识点没有以卡片列表展示");
+      }
+      const cardText = await page.evaluate(
+        `(() => { const card = document.querySelector("[data-knowledge-card]"); return card ? card.innerText : ""; })()`,
+      );
+      if (!cardText.includes("来源") || !/第\s*\d+\s*段/.test(cardText)) {
+        throw new Error("知识点卡片没有显示标题、摘要与来源段落序号");
+      }
+      const expanded = await page.evaluate(
+        `(() => { const card = document.querySelector("[data-knowledge-card]"); const btn = card && card.querySelector("button"); if (!btn) return false; btn.click(); return true; })()`,
+      );
+      if (!expanded) {
+        throw new Error("知识点卡片无法点击展开");
+      }
+      const detailShown = await page.waitForText("原文出处：", 20000);
+      if (!detailShown) {
+        throw new Error("点击卡片后没有展开详情与出处");
+      }
+      const detailText = await page.evaluate(
+        `(() => { const card = document.querySelector("[data-knowledge-card]"); return card ? card.innerText : ""; })()`,
+      );
+      if (!detailText.includes("原文出处") || !/第\s*\d+\s*段/.test(detailText)) {
+        throw new Error("展开后没有显示文档名与段落序号：" + JSON.stringify(detailText.slice(0, 300)));
+      }
+      const closed = await page.clickByText("button", "收起");
+      if (!closed) {
+        throw new Error("知识点卡片没有「收起」按钮");
+      }
+      const detailGone = await page.waitForGone("原文出处：", 5000);
+      if (!detailGone) {
+        throw new Error("点击收起后知识点详情没有关闭");
       }
     },
   },

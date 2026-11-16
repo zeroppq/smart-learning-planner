@@ -287,7 +287,7 @@ export default function PlanPage() {
             <button
               type="submit"
               disabled={busy || goalText.trim().length < 2}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto"
             >
               {busy ? "处理中…" : "开始规划"}
             </button>

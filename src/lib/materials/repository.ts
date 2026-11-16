@@ -32,12 +32,13 @@ export interface KnowledgePointSummary {
   chapter_name: string;
   paragraph_index: number;
   knowledge_point_order: number;
+  summary: string;
+  material_name: string;
 }
 
 export interface KnowledgePointDetail extends KnowledgePointSummary {
   paragraph_text: string;
   source_material_id: string;
-  material_name: string;
 }
 
 export interface CreateMaterialResult {
@@ -65,10 +66,13 @@ export function listKnowledgePoints(materialId: string): KnowledgePointSummary[]
   const db = getDatabase();
   return db
     .prepare(
-      `SELECT knowledge_point_id, point_title, chapter_name, paragraph_index, knowledge_point_order
-         FROM knowledge_point
-        WHERE source_material_id = ?
-        ORDER BY knowledge_point_order ASC`,
+      `SELECT k.knowledge_point_id, k.point_title, k.chapter_name, k.paragraph_index,
+              k.knowledge_point_order, substr(k.paragraph_text, 1, 50) AS summary,
+              m.material_name
+         FROM knowledge_point k
+         JOIN source_material m ON m.source_material_id = k.source_material_id
+        WHERE k.source_material_id = ?
+        ORDER BY k.knowledge_point_order ASC`,
     )
     .all(materialId) as unknown as KnowledgePointSummary[];
 }

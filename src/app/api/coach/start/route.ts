@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       chapterName: point.chapterName,
       materialName: point.materialName,
       paragraphIndex: point.paragraphIndex,
+      paragraphText: point.paragraphText,
     },
     standard,
     standardText,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CitedText } from "@/components/cited-text";
 
 interface PlanTask {
   daily_task_id: string;
@@ -93,6 +94,11 @@ export default function TodayPage() {
   const [pointTitle, setPointTitle] = useState("");
   const [pointChapter, setPointChapter] = useState("");
   const [lecture, setLecture] = useState("");
+  const [lectureSource, setLectureSource] = useState<{
+    materialName: string;
+    paragraphIndex: number;
+    paragraphText?: string;
+  } | null>(null);
   const [standard, setStandard] = useState<JudgeStandard | null>(null);
   const [layer, setLayer] = useState<Layer>("explain");
   const [question, setQuestion] = useState("");
@@ -112,7 +118,9 @@ export default function TodayPage() {
 
   const [askQuestion, setAskQuestion] = useState("");
   const [askAnswer, setAskAnswer] = useState("");
-  const [askSources, setAskSources] = useState<Array<{ materialName: string; paragraphIndex: number; pointTitle: string }>>([]);
+  const [askSources, setAskSources] = useState<
+    Array<{ materialName: string; paragraphIndex: number; paragraphText?: string; pointTitle: string }>
+  >([]);
 
   const loadPlan = useCallback(async () => {
     const response = await fetch("/api/plans/current");
@@ -147,6 +155,7 @@ export default function TodayPage() {
     setActivePointId(knowledgePointId);
     setPointTitle(title);
     setLecture("");
+    setLectureSource(null);
     setStandard(null);
     setVerdict(null);
     setLastSubmittedAnswer("");
@@ -161,7 +170,13 @@ export default function TodayPage() {
       });
       const data = (await response.json()) as {
         ok: boolean;
-        point?: { pointTitle: string; chapterName: string };
+        point?: {
+          pointTitle: string;
+          chapterName: string;
+          materialName?: string;
+          paragraphIndex?: number;
+          paragraphText?: string;
+        };
         lecture?: string;
         standard?: JudgeStandard;
         mastery?: Mastery;
@@ -177,6 +192,15 @@ export default function TodayPage() {
       setPointTitle(data.point?.pointTitle ?? title);
       setPointChapter(data.point?.chapterName ?? "");
       setLecture(data.lecture ?? "");
+      setLectureSource(
+        data.point?.materialName && typeof data.point.paragraphIndex === "number"
+          ? {
+              materialName: data.point.materialName,
+              paragraphIndex: data.point.paragraphIndex,
+              paragraphText: data.point.paragraphText,
+            }
+          : null,
+      );
       setStandard(data.standard ?? null);
       setMastery(data.mastery ?? null);
       setLayer("explain");
@@ -465,7 +489,12 @@ export default function TodayPage() {
       const data = (await response.json()) as {
         ok: boolean;
         answer?: string;
-        sources?: Array<{ materialName: string; paragraphIndex: number; pointTitle: string }>;
+        sources?: Array<{
+          materialName: string;
+          paragraphIndex: number;
+          paragraphText?: string;
+          pointTitle: string;
+        }>;
         error?: string;
       };
 
@@ -513,15 +542,17 @@ export default function TodayPage() {
               {plan.today_tasks.map((task) => (
                 <div
                   key={task.daily_task_id}
-                  className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 px-3 py-2"
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 transition hover:bg-slate-50"
                 >
-                  <span className="min-w-0 flex-1 text-sm text-slate-900">{task.point_title}</span>
+                  <span className="min-w-0 basis-full break-words text-sm text-slate-900 sm:basis-0 sm:flex-1">
+                    {task.point_title}
+                  </span>
                   <span className="text-xs text-slate-400">{task.estimated_minutes} 分钟</span>
                   <button
                     type="button"
                     onClick={() => void beginLearning(task.knowledge_point_id, task.point_title)}
                     disabled={busy}
-                    className="rounded-md bg-slate-900 px-3 py-1.5 text-xs text-white disabled:bg-slate-400"
+                    className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-xs text-white disabled:bg-slate-400 sm:ml-0"
                   >
                     开始学习
                   </button>
@@ -562,14 +593,18 @@ export default function TodayPage() {
           </div>
 
           {lecture && (
-            <div className="mt-3 rounded-lg bg-slate-50 p-3">
-              <p className="text-xs font-medium text-slate-500">督学讲解</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-800">{lecture}</p>
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-600">督学讲解</p>
+              <CitedText
+                text={lecture}
+                sources={lectureSource ? [lectureSource] : []}
+                className="mt-1"
+              />
             </div>
           )}
 
           {standard && (
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 shadow-sm">
               <p className="text-xs font-semibold text-amber-800">判定标准（开始判定前请先看完）</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 {(["explain", "practice", "apply"] as Layer[]).map((key) => (
@@ -632,13 +667,18 @@ export default function TodayPage() {
           </div>
 
           {verdict && (
-            <div className={`mt-3 rounded-lg border p-3 ${verdictStyle[verdict.verdict]}`}>
-              <p className="text-sm font-semibold">{verdictLabel[verdict.verdict]}</p>
-              <p className="mt-1 text-sm leading-6">{verdict.feedback}</p>
+            <div className={`mt-3 rounded-lg border border-l-4 p-4 shadow-sm ${verdictStyle[verdict.verdict]}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-current bg-white/70 px-2.5 py-0.5 text-xs font-semibold">
+                  {verdictLabel[verdict.verdict]}
+                </span>
+                <span className="text-xs opacity-80">本层判定结果</span>
+              </div>
+              <p className="mt-2 text-sm leading-6">{verdict.feedback}</p>
 
               {standard && (
-                <div className="mt-2 space-y-1">
-                  <p className="text-xs font-medium">达标情况（对照本层标准）</p>
+                <div className="mt-3 space-y-1">
+                  <p className="text-xs font-semibold">达标情况（对照本层标准）</p>
                   <ul className="space-y-1">
                     {standard[layer].map((item, index) => {
                       const gap = verdict.gaps.find((entry) => entry.standard_index === index + 1);
@@ -646,16 +686,17 @@ export default function TodayPage() {
                         return (
                           <li
                             key={index}
-                            className="rounded bg-white/70 px-2 py-1 text-xs font-medium text-rose-700"
+                            className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold leading-5 text-rose-800"
                           >
-                            未达标：{item}——{gap.detail}
+                            未达标：{item}
+                            <span className="mt-0.5 block font-normal text-rose-700">{gap.detail}</span>
                           </li>
                         );
                       }
                       return (
                         <li
                           key={index}
-                          className="rounded bg-white/40 px-2 py-1 text-xs text-emerald-700"
+                          className="rounded-md bg-white/60 px-2.5 py-1.5 text-xs leading-5 text-emerald-700"
                         >
                           已达标：{item}
                         </li>
@@ -679,25 +720,26 @@ export default function TodayPage() {
           )}
 
           {verdict && verdict.verdict !== "pass" && mastery?.rejudge_used === 0 && (
-            <div className="mt-3 rounded-lg border border-slate-200 p-3">
-              <p className="text-xs font-medium text-slate-600">
-                申请重判（只能一次，基于你上次的回答与下面的补充说明重新判定）
+            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50/60 p-4">
+              <p className="text-sm font-semibold text-amber-900">申请重判（只能一次）</p>
+              <p className="mt-1 text-xs leading-5 text-amber-800">
+                基于你上次的回答与下面的补充说明重新判定。
               </p>
               <textarea
                 value={rejudgeNote}
                 onChange={(event) => setRejudgeNote(event.target.value)}
                 rows={2}
                 placeholder="补充说明你这次想澄清的点"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
+                className="mt-2 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-700"
               />
               {rejudgeNotice && (
-                <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">{rejudgeNotice}</p>
+                <p className="mt-2 rounded-lg border border-amber-200 bg-white/80 px-3 py-2 text-xs text-amber-900">{rejudgeNotice}</p>
               )}
               <button
                 type="button"
                 onClick={() => void submitRejudge()}
                 disabled={rejudgeBusy || rejudgeNote.trim().length < 2}
-                className="mt-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 disabled:text-slate-400"
+                className="mt-2 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {rejudgeBusy ? "重判中…" : "申请重判"}
               </button>
@@ -765,7 +807,7 @@ export default function TodayPage() {
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-900">基于知识库答疑</h2>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
           <input
             value={askQuestion}
             onChange={(event) => setAskQuestion(event.target.value)}
@@ -784,18 +826,30 @@ export default function TodayPage() {
 
         {askAnswer && (
           <div className="mt-3 rounded-lg bg-slate-50 p-3">
-            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-800">{askAnswer}</p>
+            <CitedText text={askAnswer} sources={askSources} />
             {askSources.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {askSources.map((source) => (
-                  <span
-                    key={`${source.materialName}-${source.paragraphIndex}`}
-                    className="rounded-full border border-slate-300 px-2 py-0.5 text-xs text-slate-600"
-                  >
-                    {source.materialName} 第 {source.paragraphIndex} 段
-                  </span>
-                ))}
-              </div>
+              <details className="mt-2 rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
+                <summary className="cursor-pointer text-xs text-slate-500">
+                  查看全部引用出处（{askSources.length} 段）
+                </summary>
+                <ul className="mt-2 space-y-2">
+                  {askSources.map((source, index) => (
+                    <li
+                      key={`${source.materialName}-${source.paragraphIndex}-${index}`}
+                      className="rounded border border-slate-200 bg-white px-2 py-1.5"
+                    >
+                      <p className="text-xs font-medium text-slate-600">
+                        {source.materialName} · 第 {source.paragraphIndex} 段
+                      </p>
+                      {source.paragraphText ? (
+                        <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-slate-500">
+                          {source.paragraphText}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </details>
             )}
           </div>
         )}

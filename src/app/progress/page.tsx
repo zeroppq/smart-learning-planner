@@ -249,7 +249,7 @@ export default function ProgressPage() {
       </div>
 
       {proposal && (
-        <div className="rounded-xl border-2 border-slate-900 bg-white p-5">
+        <div className="rounded-xl border-2 border-slate-900 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-900">规划师的调整方案（需要你确认）</h2>
           <p className="mt-2 text-sm text-slate-700">{proposal.proposal_reason}</p>
 
